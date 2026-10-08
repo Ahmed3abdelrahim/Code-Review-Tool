@@ -35,6 +35,7 @@ from aireviewer.policy.loader import PolicySource, load_policy
 __all__ = [
     "ALLOWED_LICENSES",
     "CASE_ID_PATTERN",
+    "HOLDOUT_DIR",
     "MAX_CASE_BYTES",
     "Case",
     "CaseKind",
@@ -44,11 +45,13 @@ __all__ = [
     "Split",
     "load_cases",
     "select_split",
+    "split_root",
 ]
 
 CASE_ID_PATTERN: Final = r"^[a-z0-9][a-z0-9-]{2,63}$"
 MAX_CASE_BYTES: Final = 256 * 1024
 CASES_DIR: Final = "cases"
+HOLDOUT_DIR: Final = "holdout"  # D21: all holdout material lives under eval/holdout/
 
 # Section 8.2(4): permissively licensed repositories only, plus your own ("own").
 ALLOWED_LICENSES: Final = frozenset(
@@ -294,20 +297,34 @@ class CaseSet:
     errors: tuple[str, ...]
 
 
+def split_root(eval_dir: Path, split: Split | str) -> Path:
+    """The directory holding a split's material: eval/ for dev, eval/holdout/ for holdout."""
+    return eval_dir / HOLDOUT_DIR if Split(split) is Split.HOLDOUT else eval_dir
+
+
 def load_cases(eval_dir: Path) -> CaseSet:
-    """Load and validate every `cases/*.yaml`; collect all errors instead of stopping."""
-    cases_dir = eval_dir / CASES_DIR
-    if not cases_dir.is_dir():
+    """Load and validate the cases of both roots, collecting all errors.
+
+    Dev cases live in `<eval>/cases/`, holdout cases in `<eval>/holdout/cases/` (D21); each
+    case's bundle and policy are relative to its own root. Cross-case checks (unique ids,
+    repository-disjoint splits) run over both roots.
+    """
+    if not (eval_dir / CASES_DIR).is_dir():
         return CaseSet((), (f"{CASES_DIR}/: directory not found in {eval_dir}",))
     cases: list[Case] = []
     errors: list[str] = []
-    files = sorted(p for p in cases_dir.iterdir() if p.suffix in (".yaml", ".yml"))
     policy_errors: dict[Path, tuple[str, ...]] = {}
-    for path in files:
-        case, file_errors = _load_case(path, eval_dir, policy_errors)
-        errors += file_errors
-        if case is not None and not file_errors:
-            cases.append(case)
+    for split in Split:
+        root = split_root(eval_dir, split)
+        cases_dir = root / CASES_DIR
+        if not cases_dir.is_dir():
+            continue  # the holdout root is optional
+        shown = f"{HOLDOUT_DIR}/{CASES_DIR}" if split is Split.HOLDOUT else CASES_DIR
+        for path in sorted(p for p in cases_dir.iterdir() if p.suffix in (".yaml", ".yml")):
+            case, file_errors = _load_case(path, root, split, shown, policy_errors)
+            errors += file_errors
+            if case is not None and not file_errors:
+                cases.append(case)
     errors += _cross_case_errors(cases)
     return CaseSet(tuple(cases), tuple(errors))
 
@@ -319,9 +336,13 @@ def select_split(cases: Sequence[Case], split: Literal["dev", "holdout", "all"])
 
 
 def _load_case(
-    path: Path, eval_dir: Path, policy_errors: dict[Path, tuple[str, ...]]
+    path: Path,
+    root: Path,
+    expected_split: Split,
+    shown_dir: str,
+    policy_errors: dict[Path, tuple[str, ...]],
 ) -> tuple[Case | None, list[str]]:
-    relative = f"{CASES_DIR}/{path.name}"
+    relative = f"{shown_dir}/{path.name}"
     try:
         data = load_yaml_mapping(
             path.read_text(encoding="utf-8"), max_bytes=MAX_CASE_BYTES, what="case file"
@@ -340,10 +361,14 @@ def _load_case(
     errors = []
     if case.id != path.stem:
         errors.append(f"{prefix}: id: must equal the file name ({path.stem})")
-    errors += [f"{prefix}: bundle: {m}" for m in _file_problems(eval_dir, case.bundle)]
-    policy_problems = _file_problems(eval_dir, case.policy)
+    if case.split is not expected_split:
+        errors.append(
+            f"{prefix}: split: a case under {shown_dir}/ must have split: {expected_split.value}"
+        )
+    errors += [f"{prefix}: bundle: {m}" for m in _file_problems(root, case.bundle)]
+    policy_problems = _file_problems(root, case.policy)
     if not policy_problems:
-        policy_problems = list(_policy_problems(eval_dir / case.policy, policy_errors))
+        policy_problems = list(_policy_problems(root / case.policy, policy_errors))
     errors += [f"{prefix}: policy: {m}" for m in policy_problems]
     return case, errors
 
@@ -379,6 +404,11 @@ def _normalized_repo(url: str) -> str:
 
 def _cross_case_errors(cases: Sequence[Case]) -> list[str]:
     errors: list[str] = []
+    seen: set[str] = set()
+    for case in cases:
+        if case.id in seen:
+            errors.append(f"id: {case.id} is used by more than one case")
+        seen.add(case.id)
     by_repo: dict[str, dict[Split, list[str]]] = {}
     for case in cases:
         by_repo.setdefault(_normalized_repo(case.source.repo), {}).setdefault(

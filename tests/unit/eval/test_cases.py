@@ -8,7 +8,14 @@ from typing import Any
 
 import pytest
 
-from aireviewer.eval.cases import ALLOWED_LICENSES, CaseKind, Split, load_cases, select_split
+from aireviewer.eval.cases import (
+    ALLOWED_LICENSES,
+    CaseKind,
+    Split,
+    load_cases,
+    select_split,
+    split_root,
+)
 
 pytestmark = pytest.mark.p0
 
@@ -205,22 +212,61 @@ def test_case_policy_must_load_cleanly(
 
 
 def test_splits_repository_disjoint_checked(
-    eval_dir: Path, write_case: WriteCase, make_case_data: CaseData
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
 ) -> None:
     write_case(make_case_data(id="dev-one"))
     holdout = make_case_data(id="holdout-one", split="holdout")
     holdout["source"] = {**holdout["source"], "repo": "https://github.com/Example/shop.git/"}
-    write_case(holdout)
+    write_case(holdout, holdout=True)
     other = make_case_data(id="holdout-two", split="holdout")
     other["source"] = {**other["source"], "repo": "https://github.com/example/other"}
-    write_case(other)
-    loaded = load_cases(eval_dir)
+    write_case(other, holdout=True)
+    loaded = load_cases(eval_dir)  # loads both roots
     assert has_error(loaded.errors, "source.repo:", "dev", "holdout", "dev-one", "holdout-one")
     assert not has_error(loaded.errors, "holdout-two")
 
     assert [c.id for c in select_split(loaded.cases, "holdout")] == ["holdout-one", "holdout-two"]
     assert [c.id for c in select_split(loaded.cases, "dev")] == ["dev-one"]
     assert len(select_split(loaded.cases, "all")) == 3
+
+
+def test_split_must_match_root(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    write_case(make_case_data(id="dev-ok"))
+    write_case(make_case_data(id="holdout-ok", split="holdout"), holdout=True)
+    write_case(make_case_data(id="misplaced-holdout", split="holdout"))
+    write_case(make_case_data(id="misplaced-dev"), holdout=True)
+    loaded = load_cases(eval_dir)
+    assert has_error(
+        loaded.errors, "cases/misplaced-holdout.yaml", "split:", "must have split: dev"
+    ), loaded.errors
+    assert has_error(
+        loaded.errors, "holdout/cases/misplaced-dev.yaml", "split:", "must have split: holdout"
+    ), loaded.errors
+    assert {c.id for c in loaded.cases} == {"dev-ok", "holdout-ok"}
+    assert split_root(eval_dir, "dev") == eval_dir
+    assert split_root(eval_dir, Split.HOLDOUT) == holdout_dir
+
+
+def test_holdout_paths_are_relative_to_holdout_root(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    (holdout_dir / "bundles" / "case.bundle").unlink()  # exists only in the dev root now
+    write_case(make_case_data(id="holdout-one", split="holdout"), holdout=True)
+    assert has_error(
+        errors_for(eval_dir), "holdout/cases/holdout-one.yaml", "bundle:", "does not exist"
+    )
+
+
+def test_case_ids_unique_across_roots(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    write_case(make_case_data(id="same-id"))
+    twin = make_case_data(id="same-id", split="holdout")
+    twin["source"] = {**twin["source"], "repo": "https://github.com/example/other"}
+    write_case(twin, holdout=True)
+    assert has_error(errors_for(eval_dir), "same-id", "more than one case")
 
 
 def test_missing_cases_directory_reported(tmp_path: Path) -> None:

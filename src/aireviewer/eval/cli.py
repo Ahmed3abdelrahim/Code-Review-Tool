@@ -1,8 +1,12 @@
 """`aireview-eval`: build and validate the benchmark, score predictions, adjudicate.
 
 Exit codes: 0 success, 1 invalid input (the errors are listed), 2 usage error.
-`seed-build` runs git only in temporary repositories (D11); `snapshot-upstream` reads a
-clone under eval/repos/ and is run by the user; `sandbox-commands` only prints commands.
+
+Every command except `validate` works on one split, chosen with `--split`, and takes all
+paths from that split's root: `<eval>/` for dev, `<eval>/holdout/` for holdout (D21). Holdout
+material is off-limits to Claude; holdout steps are run by the user only. `validate` checks
+both roots. `seed-build` runs git only in temporary repositories (D11); `snapshot-upstream`
+reads a clone under eval/repos/ and is run by the user; `sandbox-commands` only prints.
 """
 
 from __future__ import annotations
@@ -30,7 +34,13 @@ from aireviewer.eval.bundles import (
     build_seed_bundle,
     build_upstream_bundle,
 )
-from aireviewer.eval.cases import MAX_CASE_BYTES, Case, load_cases, select_split
+from aireviewer.eval.cases import (
+    MAX_CASE_BYTES,
+    Case,
+    Split,
+    load_cases,
+    split_root,
+)
 from aireviewer.eval.coderabbit import build_predictions, load_overrides
 from aireviewer.eval.errors import EvalInputError
 from aireviewer.eval.git import GitError
@@ -44,7 +54,7 @@ from aireviewer.eval.seeds import discover_seeds, pr_description, repository_ign
 EXIT_OK: Final = 0
 EXIT_INVALID: Final = 1
 EXIT_USAGE: Final = 2
-SPLITS: Final = ("dev", "holdout", "all")
+SPLITS: Final = tuple(s.value for s in Split)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -77,7 +87,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aireview-eval", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    _eval_dir(commands.add_parser("validate", help="validate every case in <eval-dir>/cases"))
+    _eval_dir(commands.add_parser("validate", help="validate the cases of both splits"))
 
     for name, text in (
         ("score", "score a predictions file and write a report"),
@@ -85,8 +95,8 @@ def _parser() -> argparse.ArgumentParser:
     ):
         sub = commands.add_parser(name, help=text)
         _eval_dir(sub)
+        _split(sub)
         sub.add_argument("--predictions", type=Path, required=True)
-        sub.add_argument("--split", choices=SPLITS, default="dev")
         sub.add_argument(
             "--matching",
             choices=[m.value for m in MatchingMode],
@@ -95,10 +105,10 @@ def _parser() -> argparse.ArgumentParser:
             "categories (external baselines and comparison runs)",
         )
         sub.add_argument(
-            "--adjudications", type=Path, help="default: <eval-dir>/adjudications.jsonl"
+            "--adjudications", type=Path, help="default: <split root>/adjudications.jsonl"
         )
         if name == "score":
-            sub.add_argument("--out-dir", type=Path, help="default: <eval-dir>/reports")
+            sub.add_argument("--out-dir", type=Path, help="default: <split root>/reports")
             sub.add_argument(
                 "--summary-out", type=Path, help="also write a compact baseline summary here"
             )
@@ -109,14 +119,16 @@ def _parser() -> argparse.ArgumentParser:
             )
             code.add_argument("--no-code", action="store_true", help="do not show code")
 
-    seed = commands.add_parser("seed-build", help="build bundles from eval/seeds (no push)")
+    seed = commands.add_parser("seed-build", help="build bundles from seed trees (no push)")
     _eval_dir(seed)
+    _split(seed)
     seed.add_argument("--case", action="append", default=[], help="only these case ids")
 
     upstream = commands.add_parser(
         "snapshot-upstream", help="snapshot two commits of a clone into a case bundle"
     )
     _eval_dir(upstream)
+    _split(upstream)
     upstream.add_argument("--repo-dir", type=Path, required=True)
     upstream.add_argument("--case", required=True)
     upstream.add_argument("--base", required=True, help="upstream base commit SHA")
@@ -127,22 +139,22 @@ def _parser() -> argparse.ArgumentParser:
         "sandbox-commands", help="print the commands that push cases to the sandbox"
     )
     _eval_dir(sandbox)
+    _split(sandbox)
     sandbox.add_argument("--org", required=True, type=_org)
-    sandbox.add_argument("--split", choices=SPLITS, default="all")
 
     coderabbit = commands.add_parser(
         "import-coderabbit", help="convert exported CodeRabbit comments into predictions"
     )
     _eval_dir(coderabbit)
+    _split(coderabbit)
     coderabbit.add_argument(
-        "--comments-dir", type=Path, help="default: <eval-dir>/baselines/coderabbit"
+        "--comments-dir", type=Path, help="default: <split root>/baselines/coderabbit"
     )
     coderabbit.add_argument(
-        "--overrides", type=Path, help="default: <eval-dir>/baselines/coderabbit_overrides.yaml"
+        "--overrides", type=Path, help="default: <split root>/baselines/coderabbit_overrides.yaml"
     )
-    coderabbit.add_argument("--split", choices=SPLITS, default="all")
     coderabbit.add_argument(
-        "--out", type=Path, help="default: <eval-dir>/baselines/coderabbit_predictions.json"
+        "--out", type=Path, help="default: <split root>/baselines/coderabbit_predictions.json"
     )
     return parser
 
@@ -151,10 +163,23 @@ def _eval_dir(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--eval-dir", type=Path, default=Path("eval"))
 
 
+def _split(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--split",
+        choices=SPLITS,
+        default=Split.DEV.value,
+        help="dev (default; root <eval-dir>) or holdout (root <eval-dir>/holdout, user only)",
+    )
+
+
 def _org(value: str) -> str:
     if not ORG_PATTERN.fullmatch(value):
         raise argparse.ArgumentTypeError(f"invalid GitHub organization name: {value!r}")
     return value
+
+
+def _root(args: argparse.Namespace) -> Path:
+    return split_root(args.eval_dir, args.split)
 
 
 # --- validate, score, adjudicate ---------------------------------------------------------------
@@ -171,17 +196,17 @@ def _validate(eval_dir: Path) -> int:
     return EXIT_OK
 
 
-def _selected_cases(eval_dir: Path, split: str) -> list[Case]:
-    loaded = load_cases(eval_dir)
+def _selected_cases(args: argparse.Namespace) -> list[Case]:
+    loaded = load_cases(args.eval_dir)  # both roots: cross-split checks need them
     if loaded.errors:
         raise EvalInputError(*loaded.errors)
-    return select_split(loaded.cases, split)  # type: ignore[arg-type]
+    return [c for c in loaded.cases if c.split is Split(args.split)]
 
 
 def _scorecard(args: argparse.Namespace) -> tuple[Scorecard, dict[str, Case], AdjudicationStore]:
-    cases = _selected_cases(args.eval_dir, args.split)
+    cases = _selected_cases(args)
     predictions = load_predictions(args.predictions, cases)
-    store = AdjudicationStore(args.adjudications or args.eval_dir / "adjudications.jsonl")
+    store = AdjudicationStore(args.adjudications or _root(args) / "adjudications.jsonl")
     card = score(
         cases, predictions, store.load(), split=args.split, matching=MatchingMode(args.matching)
     )
@@ -191,7 +216,7 @@ def _scorecard(args: argparse.Namespace) -> tuple[Scorecard, dict[str, Case], Ad
 def _score(args: argparse.Namespace) -> int:
     card, _, _ = _scorecard(args)
     clock = SystemClock()
-    target = write_report(card, out_dir=args.out_dir or args.eval_dir / "reports", clock=clock)
+    target = write_report(card, out_dir=args.out_dir or _root(args) / "reports", clock=clock)
     _write((target / "report.md").read_text(encoding="utf-8"))
     _write(f"\nReport written to {target}\n")
     if args.summary_out:
@@ -210,7 +235,7 @@ def _adjudicate(args: argparse.Namespace) -> int:
         elif args.code_dir:
             code = DirectoryCodeLookup(args.code_dir)
         else:
-            code = stack.enter_context(BundleCodeLookup(args.eval_dir))
+            code = stack.enter_context(BundleCodeLookup(_root(args)))
         _write(f"{_plural(len(card.pending), 'prediction')} without a verdict.\n\n")
         summary = run_session(
             card.pending,
@@ -231,12 +256,12 @@ def _adjudicate(args: argparse.Namespace) -> int:
 
 
 def _seed_build(args: argparse.Namespace) -> int:
-    eval_dir: Path = args.eval_dir
-    seeds, errors = discover_seeds(eval_dir)
+    root = _root(args)
+    seeds, errors = discover_seeds(root)
     wanted = set(args.case)
     unknown = sorted(wanted - {s.case_id for s in seeds})
     errors += [f"{case_id}: no seed directory found" for case_id in unknown]
-    ignore = repository_ignore_spec(eval_dir.resolve().parent)
+    ignore = repository_ignore_spec(args.eval_dir.resolve().parent)
     for seed in seeds:
         if wanted and seed.case_id not in wanted:
             continue
@@ -246,7 +271,7 @@ def _seed_build(args: argparse.Namespace) -> int:
                 seed.case_id,
                 seed.base_dir,
                 seed.head_dir,
-                eval_dir / "bundles" / f"{seed.case_id}.bundle",
+                root / "bundles" / f"{seed.case_id}.bundle",
                 title=title,
                 body=body,
                 ignore=ignore,
@@ -260,15 +285,15 @@ def _seed_build(args: argparse.Namespace) -> int:
             f"{seed.case_id}: base {info.base_sha[:12]} head {info.head_sha[:12]} "
             f"({info.size_bytes / 1024:.1f} KiB, {state})\n"
         )
-        errors += _case_file_problems(eval_dir, seed.case_id, info.base_sha, info.head_sha)
+        errors += _case_file_problems(root, seed.case_id, info.base_sha, info.head_sha)
     if errors:
         _write("\n".join(errors) + "\n")
         return EXIT_INVALID
     return EXIT_OK
 
 
-def _case_file_problems(eval_dir: Path, case_id: str, base: str, head: str) -> list[str]:
-    path = eval_dir / "cases" / f"{case_id}.yaml"
+def _case_file_problems(root: Path, case_id: str, base: str, head: str) -> list[str]:
+    path = root / "cases" / f"{case_id}.yaml"
     if not path.is_file():
         _write(
             f"{case_id}: no case file yet (cases/{case_id}.yaml); record "
@@ -298,7 +323,7 @@ def _case_file_problems(eval_dir: Path, case_id: str, base: str, head: str) -> l
 
 
 def _snapshot_upstream(args: argparse.Namespace) -> int:
-    out = args.eval_dir / "bundles" / f"{args.case}.bundle"
+    out = _root(args) / "bundles" / f"{args.case}.bundle"
     title = args.title or "Change under review"
     info = build_upstream_bundle(args.case, args.repo_dir, args.base, args.head, out, title=title)
     _write(
@@ -311,23 +336,22 @@ def _snapshot_upstream(args: argparse.Namespace) -> int:
 
 
 def _sandbox_commands(args: argparse.Namespace) -> int:
-    cases = _selected_cases(args.eval_dir, args.split)
+    cases = _selected_cases(args)
+    clones = args.eval_dir / "repos" / "sandbox"  # git-ignored, for both splits
     try:
-        _write(sandbox_commands(cases, eval_dir=args.eval_dir, org=args.org))
+        _write(sandbox_commands(cases, root=_root(args), clones_dir=clones, org=args.org))
     except ValueError as exc:
         raise EvalInputError(str(exc)) from None
     return EXIT_OK
 
 
 def _import_coderabbit(args: argparse.Namespace) -> int:
-    eval_dir: Path = args.eval_dir
-    baselines = eval_dir / "baselines"
-    cases = _selected_cases(eval_dir, args.split)
+    baselines = _root(args) / "baselines"
+    cases = _selected_cases(args)
     overrides_path = args.overrides or baselines / "coderabbit_overrides.yaml"
     overrides = load_overrides(overrides_path) if overrides_path.is_file() else {}
-    document, stats = build_predictions(
-        cases, args.comments_dir or baselines / "coderabbit", overrides
-    )
+    comments_dir = args.comments_dir or baselines / "coderabbit"
+    document, stats = build_predictions(cases, comments_dir, overrides)
     out: Path = args.out or baselines / "coderabbit_predictions.json"
     _write_json(out, document)
     for case_id, counts in stats.items():

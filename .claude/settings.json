@@ -87,6 +87,7 @@
       "Read(**/*.key)",
       "Read(~/.ssh/**)",
       "Read(~/.config/aireviewer/**)",
+      "Read(eval/holdout/**)",
       "Edit(/docs/Code_Review_IMPLEMENTATION_PLAN.md)"
     ]
   },

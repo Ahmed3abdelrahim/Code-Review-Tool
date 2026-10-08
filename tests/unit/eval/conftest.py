@@ -149,13 +149,28 @@ def eval_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def holdout_dir(eval_dir: Path) -> Path:
+    """The holdout root of the temporary eval/ directory, with a bundle and a policy."""
+    root = eval_dir / "holdout"
+    for part in ("cases", "bundles", "policies"):
+        (root / part).mkdir(parents=True)
+    (root / "bundles" / "case.bundle").write_bytes(b"")
+    (root / "policies" / "default.yml").write_text("version: 1\n", encoding="utf-8")
+    return root
+
+
+@pytest.fixture
 def write_case(eval_dir: Path) -> Callable[..., Path]:
-    def write(data: dict[str, Any] | str, name: str | None = None) -> Path:
+    def write(
+        data: dict[str, Any] | str, name: str | None = None, *, holdout: bool = False
+    ) -> Path:
         if isinstance(data, str):
             text, stem = data, name or "case-one"
         else:
             text, stem = yaml.safe_dump(data, sort_keys=False), name or str(data["id"])
-        path = eval_dir / "cases" / f"{stem}.yaml"
+        root = eval_dir / "holdout" if holdout else eval_dir
+        path = root / "cases" / f"{stem}.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 

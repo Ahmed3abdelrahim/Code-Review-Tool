@@ -61,6 +61,7 @@ def test_usage_errors_exit_2(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_score_writes_and_prints_report(
     eval_dir: Path,
+    holdout_dir: Path,
     write_case: Callable[..., Path],
     make_case_data: Callable[..., dict[str, Any]],
     make_finding: Any,
@@ -70,7 +71,7 @@ def test_score_writes_and_prints_report(
     write_case(make_case_data())
     holdout = make_case_data(id="holdout-one", split="holdout")
     holdout["source"] = {**holdout["source"], "repo": "https://github.com/example/other"}
-    write_case(holdout)
+    write_case(holdout, holdout=True)
     predictions = predictions_file(tmp_path / "p.json", {"case-one": [make_finding()]})
     out_dir = tmp_path / "reports"
     args = ["score", "--eval-dir", str(eval_dir), "--predictions", str(predictions)]
@@ -83,10 +84,50 @@ def test_score_writes_and_prints_report(
     assert f"Report written to {report_dir}" in out
     assert {p.name for p in report_dir.iterdir()} == {"report.md", "metrics.json"}
 
-    # The holdout case is not in the predictions: scoring holdout or all is refused.
-    for split in ("holdout", "all"):
-        assert main([*args, "--out-dir", str(out_dir), "--split", split]) == 1
-        assert "holdout-one" in capsys.readouterr().out
+    # The holdout case is not in these predictions: scoring holdout with them is refused.
+    assert main([*args, "--out-dir", str(out_dir), "--split", "holdout"]) == 1
+    assert "holdout-one" in capsys.readouterr().out
+    # Splits are scored one root at a time; there is no "all".
+    assert main([*args, "--split", "all"]) == 2
+    capsys.readouterr()
+
+
+def test_split_selects_root(
+    eval_dir: Path,
+    holdout_dir: Path,
+    write_case: Callable[..., Path],
+    make_case_data: Callable[..., dict[str, Any]],
+    make_finding: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write_case(make_case_data())
+    holdout = make_case_data(id="holdout-one", split="holdout", kind="clean", labels=[])
+    holdout["source"] = {**holdout["source"], "repo": "https://github.com/example/other"}
+    write_case(holdout, holdout=True)
+    predictions = predictions_file(tmp_path / "h.json", {"holdout-one": [make_finding()]})
+    base = ["--eval-dir", str(eval_dir), "--predictions", str(predictions), "--split", "holdout"]
+
+    assert main(["score", *base]) == 0
+    capsys.readouterr()
+    (report,) = (holdout_dir / "reports").iterdir()
+    assert report.name.endswith("-holdout-score")
+    assert not (eval_dir / "reports").exists()
+
+    monkeypatch.setattr("sys.stdin", io.StringIO("i\nnot a bug\n"))
+    assert main(["adjudicate", *base, "--no-code"]) == 0
+    capsys.readouterr()
+    assert (holdout_dir / "adjudications.jsonl").is_file()
+    assert not (eval_dir / "adjudications.jsonl").exists()
+
+    comments = holdout_dir / "baselines" / "coderabbit"
+    comments.mkdir(parents=True)
+    (comments / "holdout-one.json").write_text("[]", encoding="utf-8")
+    assert main(["import-coderabbit", "--eval-dir", str(eval_dir), "--split", "holdout"]) == 0
+    capsys.readouterr()
+    assert (holdout_dir / "baselines" / "coderabbit_predictions.json").is_file()
+    assert not (eval_dir / "baselines").exists()
 
 
 def test_score_refuses_invalid_input(
@@ -172,7 +213,7 @@ def test_import_coderabbit_and_score_summary(
         "--predictions",
         str(out),
         "--split",
-        "all",
+        "dev",
         "--matching",
         "location",
         "--out-dir",

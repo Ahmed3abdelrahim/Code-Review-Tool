@@ -33,11 +33,15 @@ def sandbox_repo_name(case: Case) -> str:
     return name
 
 
-def sandbox_commands(cases: Sequence[Case], *, eval_dir: Path, org: str) -> str:
+def sandbox_commands(cases: Sequence[Case], *, root: Path, clones_dir: Path, org: str) -> str:
+    """Commands for `cases`, whose material (bundles, seeds, baselines) lives in `root`.
+
+    Sandbox clones go to `clones_dir` (eval/repos/sandbox, git-ignored) for every split.
+    """
     if not ORG_PATTERN.fullmatch(org):
         raise ValueError(f"invalid GitHub organization name: {org!r}")
     q = shlex.quote
-    eval_abs = eval_dir.resolve()
+    eval_abs = root.resolve()
     out = [
         "# Run these yourself, in order. Nothing here has been executed.",
         f"# Create each sandbox repository on GitHub first (empty), under {org}.",
@@ -47,7 +51,7 @@ def sandbox_commands(cases: Sequence[Case], *, eval_dir: Path, org: str) -> str:
     for case in cases:
         by_repo.setdefault(sandbox_repo_name(case), []).append(case)
     for repo, repo_cases in sorted(by_repo.items()):
-        clone = eval_abs / "repos" / "sandbox" / repo
+        clone = clones_dir.resolve() / repo
         out += [
             f"# --- {org}/{repo} ---",
             f"git init -q {q(str(clone))}",

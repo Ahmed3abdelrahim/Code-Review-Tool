@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Claude Code PreToolUse hook: block every git command except `git clone`.
+"""Claude Code PreToolUse hook for Bash commands.
+
+1. Block every git command except `git clone` (D11).
+2. Block every command whose text mentions the holdout directory `eval/holdout` (D21):
+   holdout data is off-limits to Claude; only the harness, run by the user, reads it.
 
 Reads the hook event JSON from stdin.
 Exit 0 = no objection (the normal permission flow continues).
@@ -19,6 +23,15 @@ GIT_RE = re.compile(r"(?<![\w.\-])(?:[\w.\-]*/)*git(?=[\s\"'`;|&)]|$)")
 OPTIONS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
 SEPARATORS = set(";|&)`\n")
 ALLOWED_SUBCOMMANDS = {"clone"}
+HOLDOUT_DIR = "eval/holdout"
+# Path spellings that name the same directory: eval//holdout, eval/./holdout.
+_PATH_NOISE = re.compile(r"/(?:\./)+|/{2,}")
+
+
+def mentions_holdout(command: str) -> bool:
+    """True when the command text names eval/holdout (after collapsing // and /./)."""
+    normalized = _PATH_NOISE.sub("/", command)
+    return HOLDOUT_DIR in normalized
 
 
 def find_violation(command: str) -> str | None:
@@ -57,6 +70,15 @@ def main() -> int:
         return 2
     if not isinstance(command, str):
         return 0
+    if mentions_holdout(command):
+        print(
+            f"Blocked by project policy: holdout data ({HOLDOUT_DIR}/) is off-limits to Claude "
+            "(D21). Do not read, list, search or copy anything under it, by any means. The "
+            "user runs every holdout step (seed-build, adjudication, scoring, reports) and "
+            "shares only aggregate metrics.",
+            file=sys.stderr,
+        )
+        return 2
     violation = find_violation(command)
     if violation:
         print(

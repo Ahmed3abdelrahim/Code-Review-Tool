@@ -303,3 +303,23 @@ def test_seed_build_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "case-one" in out
     assert "unchanged" in out
     assert "case-two" not in out
+
+
+def test_seed_build_uses_the_split_root(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    eval_dir = tmp_path / "eval"
+    write(eval_dir / "seeds" / "py-shop" / "dev-one", {"base/a.py": "1\n", "head/a.py": "2\n"})
+    holdout_root = eval_dir / "holdout"
+    write(
+        holdout_root / "seeds" / "py-ledger" / "ledger-one",
+        {"base/b.py": "1\n", "head/b.py": "2\n"},
+    )
+
+    assert main(["seed-build", "--eval-dir", str(eval_dir)]) == 0
+    assert "ledger-one" not in capsys.readouterr().out  # dev never touches the holdout root
+    assert (eval_dir / "bundles" / "dev-one.bundle").is_file()
+    assert not (holdout_root / "bundles").exists()
+
+    assert main(["seed-build", "--eval-dir", str(eval_dir), "--split", "holdout"]) == 0
+    assert "dev-one" not in capsys.readouterr().out
+    assert (holdout_root / "bundles" / "ledger-one.bundle").is_file()
+    assert not (eval_dir / "bundles" / "ledger-one.bundle").exists()
