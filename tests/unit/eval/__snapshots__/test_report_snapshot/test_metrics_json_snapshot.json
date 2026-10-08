@@ -1,0 +1,185 @@
+{
+  "cases": {
+    "by_kind": {
+      "clean": 1,
+      "defect": 1,
+      "design": 1
+    },
+    "ids": [
+      "case-defect",
+      "case-clean",
+      "case-design"
+    ],
+    "total": 3
+  },
+  "eval_key_version": 1,
+  "false_positives_per_pr": {
+    "cases": 3,
+    "invalid": 2,
+    "lower": 0.6667,
+    "pending": 1,
+    "upper": 1.0,
+    "value": null
+  },
+  "format_version": 1,
+  "generated_at": "2026-10-08T12:00:05Z",
+  "high_severity_recall": {
+    "inline_value": 0.3333,
+    "labels": 3,
+    "matched": 2,
+    "matched_inline": 1,
+    "value": 0.6667
+  },
+  "inline_per_case": {
+    "max": 3,
+    "mean": 2.3333
+  },
+  "inline_precision": {
+    "all": {
+      "correct": 3,
+      "duplicate": 1,
+      "invalid": 2,
+      "lower": 0.4286,
+      "n": 7,
+      "pending": 1,
+      "upper": 0.5714,
+      "value": null
+    },
+    "correctness": {
+      "correct": 2,
+      "duplicate": 1,
+      "invalid": 0,
+      "lower": 0.6667,
+      "n": 3,
+      "pending": 0,
+      "upper": 0.6667,
+      "value": 0.6667
+    },
+    "lint": {
+      "correct": 0,
+      "duplicate": 0,
+      "invalid": 0,
+      "lower": 0.0,
+      "n": 1,
+      "pending": 1,
+      "upper": 1.0,
+      "value": null
+    },
+    "maintainability": {
+      "correct": 1,
+      "duplicate": 0,
+      "invalid": 0,
+      "lower": 1.0,
+      "n": 1,
+      "pending": 0,
+      "upper": 1.0,
+      "value": 1.0
+    },
+    "performance": {
+      "correct": 0,
+      "duplicate": 0,
+      "invalid": 1,
+      "lower": 0.0,
+      "n": 1,
+      "pending": 0,
+      "upper": 0.0,
+      "value": 0.0
+    },
+    "reliability": {
+      "correct": 0,
+      "duplicate": 0,
+      "invalid": 1,
+      "lower": 0.0,
+      "n": 1,
+      "pending": 0,
+      "upper": 0.0,
+      "value": 0.0
+    }
+  },
+  "max_inline_exceeded": [
+    {
+      "case_id": "case-defect",
+      "inline": 3,
+      "limit": 2
+    }
+  ],
+  "missed_must_find": [
+    {
+      "case_id": "case-defect",
+      "label_id": "L3"
+    }
+  ],
+  "pending": [
+    {
+      "case_id": "case-defect",
+      "category": "lint",
+      "channel": "inline",
+      "key": "03587a22c945e1bd2457c354",
+      "path": "src/a.py",
+      "start_line": 1,
+      "title": "Finding P4"
+    }
+  ],
+  "per_rule_precision": {
+    "C901": {
+      "correct": 1,
+      "duplicate": 0,
+      "invalid": 0,
+      "lower": 1.0,
+      "n": 1,
+      "pending": 0,
+      "upper": 1.0,
+      "value": 1.0
+    },
+    "layering.api-db": {
+      "correct": 1,
+      "duplicate": 0,
+      "invalid": 1,
+      "lower": 0.5,
+      "n": 2,
+      "pending": 0,
+      "upper": 0.5,
+      "value": 0.5
+    }
+  },
+  "producer": {
+    "engine": "fixture-1",
+    "model": "none"
+  },
+  "split": "dev",
+  "summary_precision": {
+    "all": {
+      "correct": 2,
+      "duplicate": 0,
+      "invalid": 1,
+      "lower": 0.6667,
+      "n": 3,
+      "pending": 0,
+      "upper": 0.6667,
+      "value": 0.6667
+    },
+    "design": {
+      "correct": 1,
+      "duplicate": 0,
+      "invalid": 1,
+      "lower": 0.5,
+      "n": 2,
+      "pending": 0,
+      "upper": 0.5,
+      "value": 0.5
+    },
+    "security": {
+      "correct": 1,
+      "duplicate": 0,
+      "invalid": 0,
+      "lower": 1.0,
+      "n": 1,
+      "pending": 0,
+      "upper": 1.0,
+      "value": 1.0
+    }
+  },
+  "unscored": {
+    "annotation": 1
+  }
+}

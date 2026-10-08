@@ -5,7 +5,7 @@
 - [x] T0.2 Settings, logging, redaction
 - [x] T0.3 Core contracts
 - [x] T0.4 Policy schema and loader
-- [ ] T0.5 Evaluation format, matcher, metrics
+- [x] T0.5 Evaluation format, matcher, metrics
 - [ ] T0.6 Benchmark seed and CodeRabbit baseline
 - [ ] T0.7 GitHub App and sandbox setup
 - [ ] Phase 0 gate
@@ -95,3 +95,7 @@
 2026-10-08 — T0.4 — For T1.7/T3.1: policy budgets are only checked to be ≥ 1; the server clamps them to operator limits, and every clamp must be reported in the summary ("max_llm_calls lowered from X to Y by server limit"). T1.7 matches policy globs with `compile_globs` (pathspec `gitignore`), the engine validation uses.
 2026-10-08 — T0.4 — For T1.8/T1.9: the summary lists `PolicyResult.errors` at the top when `source` is `fallback` (ErrorCode POLICY_INVALID, outcome none); a policy file changed by the PR is ignored for the run and noted (§5.3 rule 1). Open question for T1.8: should an invalid policy skip Layer C (deterministic layers only, run partial), so that a typo cannot send excluded paths to the model? Nothing implemented for it yet.
 2026-10-08 — T0.4 — For T2.2: ESLint rule names and levels are only checked for syntax; the allowlist check belongs to config generation. For T4.7: `detector_search` returns `timeout` after 0.1 s; the convention pass decides what a timeout means for a finding.
+2026-10-09 — T0.5 — Evaluation harness in src/aireviewer/eval/ (cases, predictions, matcher, adjudicate, metrics, report, cli) and the §5.5 fingerprint in src/aireviewer/pipeline/fingerprint.py (D20). The hardened YAML loader moved from policy/loader.py to src/aireviewer/config_files.py (shared with case files; policy behaviour unchanged). Console script `aireview-eval` (validate, score, adjudicate). Adjudications are keyed by `eval_key` = the §5.5 fields without enclosing symbol plus the start line (key_version 1). Snapshots created: tests/unit/eval/__snapshots__/test_report_snapshot/ (initial report.md and metrics.json of the hand-computed fixture set).
+2026-10-09 — T0.5 — For T0.6: implement a bundle-backed `CodeLookup` (temp dir, argv lists, timeout) with integration tests, and remove `integration` from ALLOW_EMPTY when the first integration test lands (D14). CodeRabbit predictions must use the D20 predictions format with `channel: inline`; fingerprints may be left empty (the harness computes its own key). `test_splits_repository_disjoint` can rely on the check in `load_cases`. The §8.1 example's `base_sha: 3f1c...` is a placeholder: real cases need full quoted SHAs.
+2026-10-09 — T0.5 — For T2.8: compute fingerprints with `pipeline.fingerprint.fingerprint` plus the resolved enclosing symbol. Never change `eval_key` or EVAL_KEY_VERSION without a migration of eval/adjudications.jsonl.
+2026-10-09 — T0.5 — For T3.13: the runner writes predictions in the D20 format and the report adds latency p50/p95, cost and partial rate. `make eval-compare` must fail if either high-severity recall figure (inline + summary, or inline only) or any category's inline precision drops by more than 5 points versus eval/baseline.json.
