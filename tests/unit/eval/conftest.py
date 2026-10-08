@@ -18,6 +18,8 @@ from aireviewer.eval.predictions import Predictions
 
 SHA_BASE = "a" * 40
 SHA_HEAD = "b" * 40
+BUNDLE_BASE = "c" * 40
+BUNDLE_HEAD = "e" * 40
 
 type FindingFactory = Callable[..., Finding]
 type LabelFactory = Callable[..., dict[str, Any]]
@@ -100,6 +102,8 @@ def case_data(**overrides: Any) -> dict[str, Any]:
             "head_sha": SHA_HEAD,
         },
         "bundle": "bundles/case.bundle",
+        "bundle_base_sha": BUNDLE_BASE,
+        "bundle_head_sha": BUNDLE_HEAD,
         "policy": "policies/default.yml",
         "labels": [_label()],
         "provenance": "hand-labeled",

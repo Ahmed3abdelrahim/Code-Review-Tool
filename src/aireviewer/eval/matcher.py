@@ -9,11 +9,16 @@ Within a channel the assignment is one-to-one and maximum-cardinality: as many p
 possible, then the smallest total severity disagreement, then the smallest total line gap.
 It is solved exactly (Hungarian algorithm on integer costs) over predictions and labels in
 a canonical order, so the result does not depend on input order.
+
+Matching is STRICT (compatible categories required) by default. LOCATION mode ignores
+categories; it is for external baselines such as CodeRabbit, whose categories are mapped
+heuristically, and for the comparison run of our own engine against them (D21).
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import Final
 
 from aireviewer.contracts.findings import Category, Channel, Finding, Severity
@@ -24,6 +29,7 @@ __all__ = [
     "COMPATIBLE_CATEGORIES",
     "LINE_TOLERANCE",
     "SEVERITY_RANK",
+    "MatchingMode",
     "categories_compatible",
     "line_gap",
     "match_case",
@@ -37,6 +43,11 @@ SEVERITY_RANK: Final = {severity: rank for rank, severity in enumerate(Severity)
 _MATCH_ORDER: Final = (Channel.INLINE, Channel.SUMMARY)
 
 
+class MatchingMode(StrEnum):
+    STRICT = "strict"  # path, side, lines and compatible categories
+    LOCATION = "location"  # path, side and lines only
+
+
 def categories_compatible(a: Category, b: Category) -> bool:
     return a == b or (a in COMPATIBLE_CATEGORIES and b in COMPATIBLE_CATEGORIES)
 
@@ -46,7 +57,9 @@ def line_gap(p_start: int, p_end: int, l_start: int, l_end: int) -> int:
     return max(0, p_start - l_end, l_start - p_end)
 
 
-def match_case(case: Case, findings: Sequence[Finding]) -> dict[int, str]:
+def match_case(
+    case: Case, findings: Sequence[Finding], *, mode: MatchingMode = MatchingMode.STRICT
+) -> dict[int, str]:
     """Return {index in `findings`: label id} for the matched predictions."""
     matched: dict[int, str] = {}
     free = sorted(case.labels, key=lambda label: label.id)
@@ -55,7 +68,7 @@ def match_case(case: Case, findings: Sequence[Finding]) -> dict[int, str]:
             (i for i, f in enumerate(findings) if f.channel is channel),
             key=lambda i: _canonical_order(case, findings[i]),
         )
-        assigned = _assign(case, [findings[i] for i in rows], free)
+        assigned = _assign(case, [findings[i] for i in rows], free, mode)
         for row, label in assigned.items():
             matched[rows[row]] = label.id
         taken = {label.id for label in assigned.values()}
@@ -78,12 +91,16 @@ def _canonical_order(case: Case, finding: Finding) -> tuple[object, ...]:
     )
 
 
-def _pair_cost(case: Case, finding: Finding, label: Label) -> tuple[int, int] | None:
+def _pair_cost(
+    case: Case, finding: Finding, label: Label, mode: MatchingMode
+) -> tuple[int, int] | None:
     """(severity disagreement, line gap) when the pair can match, else None."""
     location = finding.location
     if case.canonical_path(location.path) != case.canonical_path(label.path):
         return None
-    if location.side != label.side or not categories_compatible(finding.category, label.category):
+    if location.side != label.side:
+        return None
+    if mode is MatchingMode.STRICT and not categories_compatible(finding.category, label.category):
         return None
     gap = line_gap(location.start_line, location.end_line, label.lines[0], label.lines[1])
     if gap > LINE_TOLERANCE:
@@ -91,7 +108,9 @@ def _pair_cost(case: Case, finding: Finding, label: Label) -> tuple[int, int] | 
     return abs(SEVERITY_RANK[finding.severity] - SEVERITY_RANK[label.severity]), gap
 
 
-def _assign(case: Case, findings: Sequence[Finding], labels: Sequence[Label]) -> dict[int, Label]:
+def _assign(
+    case: Case, findings: Sequence[Finding], labels: Sequence[Label], mode: MatchingMode
+) -> dict[int, Label]:
     if not findings or not labels:
         return {}
     n = len(findings)
@@ -105,7 +124,7 @@ def _assign(case: Case, findings: Sequence[Finding], labels: Sequence[Label]) ->
     for finding in findings:
         row = []
         for label in labels:
-            cost = _pair_cost(case, finding, label)
+            cost = _pair_cost(case, finding, label, mode)
             row.append(forbidden if cost is None else cost[0] * weight + cost[1])
         row += [unmatched] * n  # one "stay unmatched" column per prediction
         matrix.append(row)

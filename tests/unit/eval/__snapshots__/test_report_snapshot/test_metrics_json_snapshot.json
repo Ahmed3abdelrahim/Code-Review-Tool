@@ -96,6 +96,7 @@
       "value": 0.0
     }
   },
+  "matching": "strict",
   "max_inline_exceeded": [
     {
       "case_id": "case-defect",

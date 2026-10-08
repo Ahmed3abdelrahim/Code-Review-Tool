@@ -1,0 +1,3 @@
+# Policy used by benchmark cases that need no repository-specific rules: the built-in
+# defaults (src/aireviewer/policy/default_policy.yml).
+version: 1

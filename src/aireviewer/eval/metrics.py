@@ -19,7 +19,7 @@ from typing import Final
 from aireviewer.contracts.findings import Category, Channel, Finding, Severity
 from aireviewer.eval.adjudicate import AdjudicationIndex, Verdict
 from aireviewer.eval.cases import Case
-from aireviewer.eval.matcher import SEVERITY_RANK, match_case
+from aireviewer.eval.matcher import SEVERITY_RANK, MatchingMode, match_case
 from aireviewer.eval.predictions import Predictions, eval_key
 
 __all__ = [
@@ -141,6 +141,7 @@ class InlineStats:
 @dataclass(frozen=True, slots=True)
 class Scorecard:
     split: str
+    matching: MatchingMode
     producer: Mapping[str, str]
     cases: tuple[Case, ...]
     scored: tuple[ScoredFinding, ...]
@@ -157,7 +158,12 @@ class Scorecard:
 
 
 def score(
-    cases: Sequence[Case], predictions: Predictions, index: AdjudicationIndex, *, split: str
+    cases: Sequence[Case],
+    predictions: Predictions,
+    index: AdjudicationIndex,
+    *,
+    split: str,
+    matching: MatchingMode = MatchingMode.STRICT,
 ) -> Scorecard:
     scored: list[ScoredFinding] = []
     matched_any: set[tuple[str, str]] = set()
@@ -165,7 +171,7 @@ def score(
     inline_counts: dict[str, int] = {}
     for case in cases:
         findings = predictions.scored(case.id)
-        matches = match_case(case, findings)
+        matches = match_case(case, findings, mode=matching)
         for i, finding in enumerate(findings):
             key = eval_key(case, finding)
             label_id = matches.get(i)
@@ -190,6 +196,7 @@ def score(
     ]
     return Scorecard(
         split=split,
+        matching=matching,
         producer=dict(predictions.producer),
         cases=tuple(cases),
         scored=tuple(scored),

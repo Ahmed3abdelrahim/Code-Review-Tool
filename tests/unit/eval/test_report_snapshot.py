@@ -16,8 +16,14 @@ from syrupy.assertion import SnapshotAssertion
 from syrupy.extensions.json import JSONSnapshotExtension
 from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
 
+from aireviewer.eval.matcher import MatchingMode
 from aireviewer.eval.metrics import score
-from aireviewer.eval.report import metrics_document, render_markdown, write_report
+from aireviewer.eval.report import (
+    metrics_document,
+    render_markdown,
+    summary_document,
+    write_report,
+)
 
 pytestmark = pytest.mark.p0
 
@@ -47,6 +53,7 @@ def test_report_markdown_snapshot(known_values: Any, snapshot: SnapshotAssertion
     assert "[42.9%, 57.1%]" in markdown
     assert "n=7" in markdown
     assert "66.7% (n=3)" in markdown
+    assert "- Matching: strict (categories must be compatible)" in markdown
     assert markdown == snapshot.use_extension(MarkdownSnapshotExtension)
 
 
@@ -62,6 +69,7 @@ def test_metrics_json_snapshot(known_values: Any, snapshot: SnapshotAssertion) -
     )
     assert document["producer"] == {"engine": "fixture-1", "model": "none"}
     assert document["split"] == "dev"
+    assert document["matching"] == "strict"
     assert document == snapshot.use_extension(JSONSnapshotExtension)
 
 
@@ -93,3 +101,33 @@ def test_report_escapes_untrusted_text(make_case: Any, make_finding: Any) -> Non
     assert "a \\| b" in markdown
     assert "x \\| y" in markdown
     assert "<script>" not in markdown
+
+
+def test_report_states_location_matching(known_values: Any) -> None:
+    card = score(
+        known_values.cases,
+        known_values.predictions,
+        known_values.index,
+        split="all",
+        matching=MatchingMode.LOCATION,
+    )
+    assert card.matching is MatchingMode.LOCATION
+    markdown = render_markdown(card, generated_at=GENERATED_AT)
+    assert "- Matching: location only (categories ignored)" in markdown
+    assert metrics_document(card, generated_at=GENERATED_AT)["matching"] == "location"
+
+
+def test_summary_document(known_values: Any) -> None:
+    summary = summary_document(scorecard(known_values), generated_at=GENERATED_AT)
+    json.dumps(summary, allow_nan=False)
+    assert summary["producer"] == {"engine": "fixture-1", "model": "none"}
+    assert summary["matching"] == "strict"
+    assert summary["cases"] == {"total": 3, "by_kind": {"clean": 1, "defect": 1, "design": 1}}
+    all_inline = summary["inline_precision"]["all"]
+    assert (all_inline["n"], all_inline["lower"], all_inline["upper"]) == (7, 0.4286, 0.5714)
+    assert summary["high_severity_recall"]["value"] == 0.6667
+    assert summary["high_severity_recall"]["inline_value"] == 0.3333
+    assert summary["comments_per_pr"] == {"mean": 2.3333, "max": 3}
+    assert summary["false_positives_per_pr"]["upper"] == 1.0
+    assert summary["pending_adjudications"] == 1
+    assert summary["eval_key_version"] == 1

@@ -2,6 +2,7 @@
 
 - Generated: 2026-10-08 12:00:05 UTC
 - Split: dev
+- Matching: strict (categories must be compatible)
 - Cases: 3 (clean 1, defect 1, design 1)
 - Producer: engine fixture-1, model none
 - Evaluation key version: 1

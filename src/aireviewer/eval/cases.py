@@ -84,6 +84,7 @@ class CaseKind(StrEnum):
 
 class Provenance(StrEnum):
     HAND_LABELED = "hand-labeled"
+    PLANTED = "planted"  # D21: a bug planted in a seed tree under eval/seeds/
     REVIEW_COMMENT_MINING = "review-comment-mining"
     SZZ = "szz"
 
@@ -159,8 +160,9 @@ class CaseSource(BaseModel):
     repo: Annotated[str, AfterValidator(_check_https_url)]
     license: str
     pr: PositiveInt | None = None
-    base_sha: Sha
-    head_sha: Sha
+    # Upstream provenance; planted cases have no upstream commits (D21).
+    base_sha: Sha | None = None
+    head_sha: Sha | None = None
 
     @field_validator("license")
     @classmethod
@@ -212,14 +214,37 @@ class Case(BaseModel):
     split: Split
     kind: CaseKind
     language: Language
+    provenance: Provenance  # before source: the source rules depend on it
     source: CaseSource
     bundle: EvalPath
+    # The two snapshot commits in the bundle (D21); upstream SHAs stay in `source`.
+    bundle_base_sha: Sha
+    bundle_head_sha: Sha
     policy: EvalPath
     labels: tuple[Label, ...] = Field(default=(), validate_default=True)  # kind rules apply
     renames: tuple[Rename, ...] = ()  # D20: makes matching rename-aware offline
     expect: Expect = Expect()
-    provenance: Provenance
     notes: Annotated[Text, Field(max_length=5000)] = ""
+
+    @field_validator("source")
+    @classmethod
+    def _upstream_shas(cls, source: CaseSource, info: ValidationInfo) -> CaseSource:
+        provenance = info.data.get("provenance")
+        if provenance is None or provenance is Provenance.PLANTED:
+            return source
+        missing = [name for name in ("base_sha", "head_sha") if getattr(source, name) is None]
+        if missing:
+            raise ValueError(
+                f"{' and '.join(missing)} required (upstream commits) unless provenance is planted"
+            )
+        return source
+
+    @field_validator("bundle_head_sha")
+    @classmethod
+    def _snapshots_differ(cls, head: str, info: ValidationInfo) -> str:
+        if head == info.data.get("bundle_base_sha"):
+            raise ValueError("must differ from bundle_base_sha")
+        return head
 
     @field_validator("labels")
     @classmethod

@@ -129,3 +129,93 @@ def test_adjudicate_uses_stdin(
     lines = (eval_dir / "adjudications.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0])["note"] == "not a bug"
+
+
+CODERABBIT_COMMENT = {
+    "id": 501,
+    "user": {"login": "coderabbitai[bot]", "type": "Bot"},
+    "path": "src/a.py",
+    "line": 10,
+    "side": "RIGHT",
+    "commit_id": "e" * 40,
+    "original_commit_id": "e" * 40,
+    "subject_type": "line",
+    "diff_hunk": "@@ -9,1 +9,2 @@\n a = 0\n+x = 1",
+    "body": "_⚠️ Potential issue_\n\n**Bug at line 10**\n\nWhy.",
+}
+
+
+def test_import_coderabbit_and_score_summary(
+    eval_dir: Path,
+    write_case: Callable[..., Path],
+    make_case_data: Callable[..., dict[str, Any]],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    write_case(make_case_data())
+    comments = eval_dir / "baselines" / "coderabbit"
+    comments.mkdir(parents=True)
+    (comments / "case-one.json").write_text(json.dumps([CODERABBIT_COMMENT]), encoding="utf-8")
+    out = eval_dir / "baselines" / "coderabbit_predictions.json"
+    args = ["import-coderabbit", "--eval-dir", str(eval_dir), "--comments-dir", str(comments)]
+    assert main([*args, "--out", str(out)]) == 0
+    assert "case-one: 1 finding" in capsys.readouterr().out
+    document = json.loads(out.read_text(encoding="utf-8"))
+    assert document["producer"]["engine"] == "coderabbit"
+    assert len(document["cases"]["case-one"]) == 1
+
+    summary = eval_dir / "baselines" / "coderabbit.json"
+    score_args = [
+        "score",
+        "--eval-dir",
+        str(eval_dir),
+        "--predictions",
+        str(out),
+        "--split",
+        "all",
+        "--matching",
+        "location",
+        "--out-dir",
+        str(tmp_path / "reports"),
+        "--summary-out",
+        str(summary),
+    ]
+    assert main(score_args) == 0
+    printed = capsys.readouterr().out
+    assert "Matching: location only" in printed
+    data = json.loads(summary.read_text(encoding="utf-8"))
+    assert data["matching"] == "location"
+    assert data["inline_precision"]["all"]["n"] == 1
+    assert data["comments_per_pr"]["mean"] == 1.0
+    assert "high_severity_recall" in data
+
+
+def test_matching_defaults_to_strict(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["score", "--predictions", "p.json", "--matching", "fuzzy"]) == 2
+    capsys.readouterr()
+
+
+def test_sandbox_commands_printed_not_run(
+    eval_dir: Path,
+    write_case: Callable[..., Path],
+    make_case_data: Callable[..., dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("sandbox-commands must not run anything")
+
+    monkeypatch.setattr("subprocess.run", forbidden)
+    monkeypatch.setattr("subprocess.Popen", forbidden)
+    write_case(make_case_data())
+    assert main(["sandbox-commands", "--eval-dir", str(eval_dir), "--org", "my-sandbox"]) == 0
+    out = capsys.readouterr().out
+    assert "refs/aireview/case-one/head" in out
+    assert "git push" in out
+    assert "gh pr create --repo my-sandbox/shop" in out
+    assert "gh api --paginate" in out
+    assert "baselines/coderabbit/case-one.json" in out
+    # PR text never hints at the labels.
+    assert "A labeled defect" not in out
+    assert main(["sandbox-commands", "--eval-dir", str(eval_dir), "--org", "bad org!"]) == 2
+    capsys.readouterr()

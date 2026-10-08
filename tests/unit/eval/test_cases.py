@@ -244,3 +244,31 @@ def test_renames_validated(
     assert case.canonical_path("src/old.py") == "src/new.py"
     assert case.canonical_path("src/new.py") == "src/new.py"
     assert case.canonical_path("src/other.py") == "src/other.py"
+
+
+def test_bundle_shas_required_and_validated(
+    eval_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    missing = make_case_data(id="missing-shas")
+    del missing["bundle_base_sha"]
+    write_case(missing)
+    write_case(make_case_data(id="same-shas", bundle_head_sha="c" * 40))
+    write_case(make_case_data(id="short-sha", bundle_base_sha="c" * 12))
+    errors = errors_for(eval_dir)
+    assert has_error(errors, "(missing-shas)", "bundle_base_sha: required"), errors
+    assert has_error(errors, "(same-shas)", "bundle_head_sha:", "differ"), errors
+    assert has_error(errors, "(short-sha)", "bundle_base_sha:"), errors
+
+
+def test_planted_cases_need_no_upstream_shas(
+    eval_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    planted = make_case_data(id="planted-one", provenance="planted")
+    planted["source"] = {"repo": "https://github.com/example/py-shop", "license": "own"}
+    write_case(planted)
+    upstream = make_case_data(id="upstream-one")
+    del upstream["source"]["base_sha"]
+    write_case(upstream)
+    errors = errors_for(eval_dir)
+    assert not has_error(errors, "(planted-one)"), errors
+    assert has_error(errors, "(upstream-one)", "source:", "base_sha"), errors

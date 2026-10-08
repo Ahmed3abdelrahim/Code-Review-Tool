@@ -18,12 +18,23 @@ from typing import Any, Final
 
 from aireviewer.clock import Clock
 from aireviewer.eval.adjudicate import sanitize_for_terminal
+from aireviewer.eval.matcher import MatchingMode
 from aireviewer.eval.metrics import FalsePositives, Precision, Scorecard
 from aireviewer.eval.predictions import EVAL_KEY_VERSION
 
-__all__ = ["REPORT_FORMAT_VERSION", "metrics_document", "render_markdown", "write_report"]
+__all__ = [
+    "REPORT_FORMAT_VERSION",
+    "metrics_document",
+    "render_markdown",
+    "summary_document",
+    "write_report",
+]
 
 REPORT_FORMAT_VERSION: Final = 1
+_MATCHING_TEXT: Final = {
+    MatchingMode.STRICT: "strict (categories must be compatible)",
+    MatchingMode.LOCATION: "location only (categories ignored)",
+}
 _PRECISION_COLUMNS: Final = "| {first} | Precision | Correct | Pending | Invalid | Duplicate |\n"
 
 
@@ -56,6 +67,7 @@ def metrics_document(card: Scorecard, *, generated_at: datetime) -> dict[str, An
         "format_version": REPORT_FORMAT_VERSION,
         "generated_at": generated_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         "split": card.split,
+        "matching": card.matching.value,
         "producer": dict(card.producer),
         "eval_key_version": EVAL_KEY_VERSION,
         "cases": {
@@ -107,6 +119,26 @@ def metrics_document(card: Scorecard, *, generated_at: datetime) -> dict[str, An
     }
 
 
+def summary_document(card: Scorecard, *, generated_at: datetime) -> dict[str, Any]:
+    """The compact baseline summary (eval/baselines/<name>.json): precision (or its range),
+    high-severity recall and comments per PR, with sample sizes."""
+    full = metrics_document(card, generated_at=generated_at)
+    return {
+        "format_version": REPORT_FORMAT_VERSION,
+        "generated_at": full["generated_at"],
+        "producer": full["producer"],
+        "split": card.split,
+        "matching": card.matching.value,
+        "eval_key_version": EVAL_KEY_VERSION,
+        "cases": {"total": full["cases"]["total"], "by_kind": full["cases"]["by_kind"]},
+        "inline_precision": full["inline_precision"],
+        "high_severity_recall": full["high_severity_recall"],
+        "false_positives_per_pr": full["false_positives_per_pr"],
+        "comments_per_pr": full["inline_per_case"],
+        "pending_adjudications": len(card.pending),
+    }
+
+
 def _number(value: Fraction | None) -> float | None:
     return None if value is None else round(float(value), 4)
 
@@ -136,6 +168,7 @@ def render_markdown(card: Scorecard, *, generated_at: datetime) -> str:
         "# Evaluation report\n\n",
         f"- Generated: {generated_at.astimezone(UTC):%Y-%m-%d %H:%M:%S} UTC\n",
         f"- Split: {card.split}\n",
+        f"- Matching: {_MATCHING_TEXT[card.matching]}\n",
         f"- Cases: {len(card.cases)} ({kind_text})\n",
         f"- Producer: {producer}\n",
         f"- Evaluation key version: {EVAL_KEY_VERSION}\n",

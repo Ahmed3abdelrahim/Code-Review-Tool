@@ -12,6 +12,7 @@ from aireviewer.contracts.findings import Category
 from aireviewer.eval.matcher import (
     COMPATIBLE_CATEGORIES,
     LINE_TOLERANCE,
+    MatchingMode,
     categories_compatible,
     line_gap,
     match_case,
@@ -183,3 +184,18 @@ def test_deterministic_under_input_order(
     assert pairs(make_case(labels=shuffled_labels), shuffled_predictions) == reference
     # One-to-one in both directions.
     assert len(set(reference.values())) == len(reference)
+
+
+def test_location_mode_ignores_category(make_case: Any, make_label: Any, make_finding: Any) -> None:
+    case = make_case(labels=[make_label(category="correctness", lines=(10, 10))])
+    security = make_finding(category="security", start=11, title="p")
+    assert match_case(case, [security]) == {}  # strict is the default
+    assert match_case(case, [security], mode=MatchingMode.STRICT) == {}
+    assert match_case(case, [security], mode=MatchingMode.LOCATION) == {0: "L1"}
+    # Location still means path, side and lines.
+    for other in (
+        make_finding(category="security", start=20, title="far"),
+        make_finding(category="security", start=11, side="LEFT", title="left"),
+        make_finding(category="security", path="src/b.py", start=11, title="path"),
+    ):
+        assert match_case(case, [other], mode=MatchingMode.LOCATION) == {}

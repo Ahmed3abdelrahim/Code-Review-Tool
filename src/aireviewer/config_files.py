@@ -19,6 +19,7 @@ from pydantic import ValidationError
 __all__ = [
     "MAX_YAML_DEPTH",
     "ConfigFileError",
+    "load_yaml_document",
     "load_yaml_mapping",
     "quote_key",
     "validation_messages",
@@ -42,22 +43,27 @@ def load_yaml_mapping(text: str, *, max_bytes: int, what: str) -> dict[str, Any]
 
     `what` names the file in messages, for example "policy file".
     """
+    document = load_yaml_document(text, max_bytes=max_bytes, what=what)
+    if document is None:
+        return {}
+    if not isinstance(document, dict):
+        raise ConfigFileError(f"the top level of the {what} must be a mapping of keys")
+    return document
+
+
+def load_yaml_document(text: str, *, max_bytes: int, what: str) -> Any:
+    """Parse one YAML document of any shape (None when empty), with the same hardening."""
     size = len(text.encode("utf-8", errors="surrogatepass"))
     if size > max_bytes:
         raise ConfigFileError(f"the {what} is {size} bytes; the limit is {max_bytes} bytes")
     try:
         loader = _SafeConfigLoader(text)  # the reader rejects unprintable characters here
         try:
-            document = loader.get_single_data()
+            return loader.get_single_data()
         finally:
             loader.dispose()
     except yaml.YAMLError as exc:
         raise ConfigFileError(_yaml_message(exc)) from None
-    if document is None:
-        return {}
-    if not isinstance(document, dict):
-        raise ConfigFileError(f"the top level of the {what} must be a mapping of keys")
-    return document
 
 
 def quote_key(key: object) -> str:

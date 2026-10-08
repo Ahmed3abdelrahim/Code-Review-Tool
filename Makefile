@@ -8,8 +8,8 @@ PYTEST := $(RUN) pytest
 
 # D14: suites that may still collect zero tests (pytest exit code 5).
 # The task that adds a suite's first test removes it from this list:
-# integration -> T1.1, faults -> T1.2, security -> T1.3.
-ALLOW_EMPTY := integration security faults
+# faults -> T1.2, security -> T1.3. (integration left in T0.6, with its first tests.)
+ALLOW_EMPTY := security faults
 
 # $(call run_suite,<marker>): pytest -m <marker>; exit code 5 is tolerated only for ALLOW_EMPTY.
 define run_suite
