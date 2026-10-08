@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "Category": {
+      "enum": [
+        "lint",
+        "maintainability",
+        "design",
+        "correctness",
+        "security",
+        "reliability",
+        "performance",
+        "testing"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "Channel": {
+      "enum": [
+        "inline",
+        "summary",
+        "annotation",
+        "none"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "excerpt": {
+          "maxLength": 500,
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "title": "Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/Side",
+          "default": "RIGHT"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "excerpt"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "EvidenceStrength": {
+      "enum": [
+        "deterministic",
+        "validated",
+        "model_only"
+      ],
+      "title": "EvidenceStrength",
+      "type": "string"
+    },
+    "FindingStatus": {
+      "enum": [
+        "candidate",
+        "rejected",
+        "validated",
+        "published",
+        "summarized",
+        "suppressed",
+        "carried_over",
+        "resolved"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "Location": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^(?:F[1-9][0-9]{0,8}:H[1-9][0-9]{0,8}:[-+=][1-9][0-9]{0,8}|C[1-9][0-9]{0,8}:[1-9][0-9]{0,8})$",
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "end_line": {
+          "minimum": 1,
+          "title": "End Line",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/Side",
+          "default": "RIGHT"
+        },
+        "start_line": {
+          "minimum": 1,
+          "title": "Start Line",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "start_line",
+        "end_line"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Side": {
+      "enum": [
+        "LEFT",
+        "RIGHT"
+      ],
+      "title": "Side",
+      "type": "string"
+    },
+    "Source": {
+      "enum": [
+        "ruff",
+        "eslint",
+        "lizard",
+        "jscpd",
+        "secrets",
+        "depgraph",
+        "llm"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/Category"
+    },
+    "channel": {
+      "$ref": "#/$defs/Channel",
+      "default": "none"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "evidence_strength": {
+      "$ref": "#/$defs/EvidenceStrength",
+      "default": "model_only"
+    },
+    "explanation": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Explanation",
+      "type": "string"
+    },
+    "fingerprint": {
+      "default": "",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "impact": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Impact"
+    },
+    "introduced_by_pr": {
+      "default": false,
+      "title": "Introduced By Pr",
+      "type": "boolean"
+    },
+    "location": {
+      "$ref": "#/$defs/Location"
+    },
+    "rejection_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejection Reason"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Id"
+    },
+    "score": {
+      "default": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "status": {
+      "$ref": "#/$defs/FindingStatus",
+      "default": "candidate"
+    },
+    "suggestion": {
+      "anyOf": [
+        {
+          "maxLength": 1500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Suggestion"
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "tool_payload": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "default": {},
+      "title": "Tool Payload",
+      "type": "object"
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trigger"
+    }
+  },
+  "required": [
+    "source",
+    "category",
+    "severity",
+    "title",
+    "location",
+    "evidence",
+    "explanation"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

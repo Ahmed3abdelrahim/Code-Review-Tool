@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "effortLevel": "high",
+  "permissions": {
+    "defaultMode": "plan",
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit(/**)",
+      "WebSearch",
+      "WebFetch(domain:docs.python.org)",
+      "WebFetch(domain:docs.astral.sh)",
+      "WebFetch(domain:docs.pydantic.dev)",
+      "WebFetch(domain:fastapi.tiangolo.com)",
+      "WebFetch(domain:docs.sqlalchemy.org)",
+      "WebFetch(domain:alembic.sqlalchemy.org)",
+      "WebFetch(domain:www.psycopg.org)",
+      "WebFetch(domain:docs.pytest.org)",
+      "WebFetch(domain:hypothesis.readthedocs.io)",
+      "WebFetch(domain:eslint.org)",
+      "WebFetch(domain:typescript-eslint.io)",
+      "WebFetch(domain:tree-sitter.github.io)",
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claude.com)"
+    ],
+    "ask": [
+      "Bash(gh *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -r -f *)",
+      "Bash(rm -f -r *)",
+      "Bash(rm -Rf *)",
+      "Bash(rm -fR *)",
+      "Bash(docker system *)",
+      "Bash(docker volume rm *)",
+      "Bash(docker volume prune *)",
+      "Bash(docker image prune *)",
+      "Bash(docker container prune *)",
+      "Bash(docker builder prune *)",
+      "Bash(docker network rm *)",
+      "Bash(docker network prune *)",
+      "Bash(docker rm *)",
+      "Bash(docker rmi *)",
+      "Bash(docker stop *)",
+      "Bash(docker kill *)",
+      "Bash(docker compose down -v *)",
+      "Bash(docker compose down --volumes *)",
+      "Bash(docker compose down -v)",
+      "Bash(docker compose down --volumes)",
+      "Bash(docker compose * down -v*)",
+      "Bash(docker compose * down --volumes*)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git branch *)",
+      "Bash(git restore *)",
+      "Bash(git stash *)",
+      "Bash(git tag *)",
+      "Bash(git rm *)",
+      "Bash(git mv *)",
+      "Bash(git clean *)",
+      "Bash(git remote *)",
+      "Bash(git config *)",
+      "Bash(git init *)",
+      "Bash(git worktree *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git revert *)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(!**/.env.example)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(~/.ssh/**)",
+      "Read(~/.config/aireviewer/**)",
+      "Edit(/docs/Code_Review_IMPLEMENTATION_PLAN.md)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_git.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -12,10 +12,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168",
     "mypy>=2.4",
     "pre-commit>=4.6",
     "pytest>=9.1",
     "ruff>=0.16",
+    "syrupy>=6.1",
 ]
 
 [build-system]

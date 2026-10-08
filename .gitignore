@@ -30,8 +30,4 @@ eval/repos/
 
 # Claude Code: personal settings (settings.json and hooks/ are committed)
 .claude/settings.local.json
-.claude/
-docs/Code_Review_IMPLMENTATION.md
-docs/DECISIONS.md
-docs/PROGRESS.md
-CLAUDE.md
+.claude/skills

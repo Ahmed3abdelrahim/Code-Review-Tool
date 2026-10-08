@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "Category": {
+      "enum": [
+        "lint",
+        "maintainability",
+        "design",
+        "correctness",
+        "security",
+        "reliability",
+        "performance",
+        "testing"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "LLMEvidenceOut": {
+      "additionalProperties": false,
+      "description": "Evidence as the model reports it: an anchor (diff line or context snippet) and the\nexcerpt copied from that line.",
+      "properties": {
+        "anchor_id": {
+          "pattern": "^(?:F[1-9][0-9]{0,8}:H[1-9][0-9]{0,8}:[-+=][1-9][0-9]{0,8}|C[1-9][0-9]{0,8}:[1-9][0-9]{0,8})$",
+          "title": "Anchor Id",
+          "type": "string"
+        },
+        "excerpt": {
+          "maxLength": 500,
+          "title": "Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "anchor_id",
+        "excerpt"
+      ],
+      "title": "LLMEvidenceOut",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What the model may return. The pipeline fills in everything else.",
+  "properties": {
+    "anchor_ids": {
+      "items": {
+        "pattern": "^F[1-9][0-9]{0,8}:H[1-9][0-9]{0,8}:[-+=][1-9][0-9]{0,8}$",
+        "type": "string"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Anchor Ids",
+      "type": "array"
+    },
+    "category": {
+      "$ref": "#/$defs/Category"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/LLMEvidenceOut"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "explanation": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Explanation",
+      "type": "string"
+    },
+    "impact": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Impact"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Id"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "suggestion": {
+      "anyOf": [
+        {
+          "maxLength": 1500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Suggestion"
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trigger"
+    }
+  },
+  "required": [
+    "category",
+    "severity",
+    "title",
+    "anchor_ids",
+    "evidence",
+    "explanation"
+  ],
+  "title": "LLMFindingOut",
+  "type": "object"
+}
