@@ -1,0 +1,84 @@
+[project]
+name = "aireviewer"
+version = "0.1.0"
+description = "GitHub App that reviews pull requests with deterministic tools, design rules and an LLM."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.14",
+    "pydantic-settings>=2.15",
+    "structlog>=26.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4",
+    "pre-commit>=4.6",
+    "pytest>=9.1",
+    "ruff>=0.16",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = "==0.12.23"
+
+# --- ruff -------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+# docs/ holds illustrative snippets (and the read-only plan); ruff must never rewrite them.
+extend-exclude = [".claude", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "S",       # bandit
+    "SIM",     # simplify
+    "C4",      # comprehensions
+    "RET",     # return
+    "PT",      # pytest style
+    "RUF",     # ruff-specific
+    "T20",     # no print(): output goes through the redacting logger
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: assert is the point; fake secrets are deliberate fixtures (never real credentials).
+"tests/**" = ["S101", "S105", "S106", "T20"]
+"scripts/**" = ["T20"]
+
+# --- mypy -------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+
+# --- pytest -----------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "9.1"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib", "-ra"]
+xfail_strict = true
+markers = [
+    "unit: pure functions and classes with fakes; no Docker, no network",
+    "integration: real Postgres (testcontainers), real git, real pinned tools; needs Docker",
+    "security: malicious fixtures, prompt injection, secret leakage, token hygiene",
+    "faults: crashes, timeouts, duplicate deliveries, races, rate limits",
+    "e2e: real GitHub App on the sandbox repository (manual)",
+    "eval: benchmark with a live model (costs money; manual)",
+    "p0: Phase 0 - foundation",
+    "p1: Phase 1 - backbone",
+    "p2: Phase 2 - deterministic layer",
+    "p3: Phase 3 - LLM review",
+    "p4: Phase 4 - design rules",
+    "p5: Phase 5 - extensions",
+]

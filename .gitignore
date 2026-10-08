@@ -1,0 +1,37 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Node
+node_modules/
+
+# Evaluation clones (D11)
+eval/repos/
+
+# Claude Code: personal settings (settings.json and hooks/ are committed)
+.claude/settings.local.json
+.claude/
+docs/Code_Review_IMPLMENTATION.md
+docs/DECISIONS.md
+docs/PROGRESS.md
+CLAUDE.md

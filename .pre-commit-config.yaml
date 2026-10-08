@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-lint
+        name: make lint
+        entry: make lint
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: make-type
+        name: make type
+        entry: make type
+        language: system
+        pass_filenames: false
+        always_run: true
