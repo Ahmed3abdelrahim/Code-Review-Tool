@@ -1,0 +1,55 @@
+# Built-in defaults (plan section 5.3, D19). A repository's .ai-review.yml is merged over
+# this file: mappings merge key by key; lists, scalars and null replace. Every section
+# must be present here, because the policy models have no section defaults.
+# Reference: docs/POLICY_REFERENCE.md (generated with `make policy-docs`).
+version: 1
+
+languages: [python, typescript]
+exclude_paths: ["**/migrations/**", "**/generated/**", "**/*.min.js", "**/vendor/**"]
+
+budgets:
+  max_files: 60
+  max_file_bytes: 200000
+  max_changed_lines: 1500
+  max_llm_input_tokens: 120000
+  max_llm_calls: 12
+
+lint:
+  python:
+    select: ["E", "F", "B", "UP", "SIM", "BLE"]
+    ignore: ["E501"]
+  typescript:
+    preset: recommended
+    rules: {}
+
+complexity:
+  max_ccn: 12
+  max_function_lines: 60
+  max_params: 5
+  worsen_delta: 3
+
+duplication:
+  enabled: true
+  min_tokens: 60
+
+architecture:
+  python:
+    source_roots: null        # auto-detect
+  typescript:
+    tsconfig: tsconfig.json
+  layers: []                  # repository-specific
+  forbidden: []               # repository-specific
+  cycles:
+    enabled: true
+  drift_threshold: 0.7
+
+conventions: []               # repository-specific
+
+review:
+  categories: [correctness, security, reliability, performance, testing, design, maintainability, lint]
+  inline_cap: 5
+  min_inline_severity: medium
+  promote_inline: []
+  skip_drafts: true
+  check_run:
+    fail_on_tool_error: false

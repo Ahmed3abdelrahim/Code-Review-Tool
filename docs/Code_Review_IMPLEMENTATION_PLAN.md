@@ -198,8 +198,7 @@ ai-reviewer/
 │   └── worker.Dockerfile          # python + node + git + pinned tools; non-root user
 ├── tools/node/                    # pinned eslint, typescript-eslint, jscpd (package.json + lockfile)
 ├── config/
-│   ├── model_prices.yaml          # you fill in current prices; never hardcoded
-│   └── default_policy.yml         # built-in defaults merged under repo policy
+│   └── model_prices.yaml          # you fill in current prices; never hardcoded
 ├── src/aireviewer/
 │   ├── settings.py  logging.py  errors.py  clock.py
 │   ├── contracts/                 # findings.py policy.py run_state.py anchors.py coverage.py
@@ -209,6 +208,7 @@ ai-reviewer/
 │   ├── github/                    # auth.py client.py events.py publisher.py reactions.py
 │   ├── snapshot/                  # sources.py workspace.py git.py diff_parser.py anchors.py classify.py
 │   ├── policy/                    # loader.py generate_ruff.py generate_eslint.py
+│   |    └── default_policy.yml    # built-in defaults merged under repo policy
 │   ├── layers/
 │   │   ├── deterministic/         # runner.py ruff.py eslint.py lizard_metrics.py ratchet.py jscpd.py secrets.py
 │   │   ├── design/                # pygraph.py tsgraph.py graph.py rules.py cycles.py drift.py repomap.py
@@ -440,6 +440,15 @@ architecture:
     - name: repositories
       paths: ["src/app/repositories/**"]
       may_import: [db, domain]
+    - name: domain
+      paths: ["src/app/domain/**"]
+      may_import: []
+    - name: schemas
+      paths: ["src/app/schemas/**"]
+      may_import: [domain]
+    - name: db
+      paths: ["src/app/db/**"]
+      may_import: [domain]
   forbidden:
     - id: domain.no-framework
       from: ["src/app/domain/**"]
@@ -471,7 +480,7 @@ review:
 
 Loading rules:
 
-1. **Source precedence:** `.ai-review.yml` from the **base commit** (via `git show <base>:.ai-review.yml`), merged over `config/default_policy.yml`. A policy file changed by the PR is ignored for this run and noted in the summary.
+1. **Source precedence:** `.ai-review.yml` from the **base commit** (via `git show <base>:.ai-review.yml`), merged over the packaged defaults src/aireviewer/policy/default_policy.yml (D19) . A policy file changed by the PR is ignored for this run and noted in the summary.
 2. **Invalid policy:** fall back to defaults, run normally, and put the validation errors at the top of the summary. Never fail silently and never fail the run for a bad policy.
 3. **Unknown keys** are validation errors (`extra="forbid"`), so typos are visible.
 4. **Version:** `policy_version = sha256(canonical_json(effective_policy))[:16]`, stored on the run.
@@ -662,7 +671,7 @@ Each task lists: goal, dependencies, implementation notes, acceptance criteria (
 #### T0.4 Policy schema and loader
 
 - **Depends on:** T0.3.
-- **Notes:** Pydantic models for Section 5.3 with `extra="forbid"`; `config/default_policy.yml`; loader `load_policy(base_file_text: str | None) -> PolicyResult(effective, version, errors, source)` using `yaml.safe_load` with a size limit (64 KB) and a depth limit; deep-merge over defaults (lists replace, maps merge); canonical JSON hash; glob validation; `detector` regexes compiled with the `regex` package and a timeout wrapper. `docs/POLICY_REFERENCE.md` generated from the models.
+- **Notes:** Pydantic models for Section 5.3 with `extra="forbid"`; `src/aireviewer/policy/default_policy.yml`; loader `load_policy(base_file_text: str | None) -> PolicyResult(effective, version, errors, source)` using `yaml.safe_load` with a size limit (64 KB) and a depth limit; deep-merge over defaults (lists replace, maps merge); canonical JSON hash; glob validation; `detector` regexes compiled with the `regex` package and a timeout wrapper. `docs/POLICY_REFERENCE.md` generated from the models.
 - **AC:**
   1. `None` (no file) → defaults, `source="default"`, no errors.
   2. Invalid YAML, unknown keys, wrong types, oversized file → defaults plus a list of human-readable errors; never an exception.
@@ -1154,7 +1163,7 @@ Each task lists: goal, dependencies, implementation notes, acceptance criteria (
 - **Depends on:** all P3 tasks.
 - **Notes:** Live evaluation on `holdout`; adjudicate all unmatched predictions; compare with the CodeRabbit baseline from T0.6. Run E2E scenarios in the sandbox: a PR with a real defect, a clean PR, an injection PR, a second push (incremental), a 👎 then a new push. Measure latency at 2 concurrent runs.
 - **AC:**
-  1. Inline precision ≥ 80% per category on holdout, with sample sizes reported. A category below target is switched to summary-only in `config/default_policy.yml` (recorded in `DECISIONS.md`); this is an accepted outcome, not a failure.
+  1. Inline precision ≥ 80% per category on holdout, with sample sizes reported. A category below target is switched to summary-only in `src/aireviewer/policy/default_policy.yml` (recorded in `DECISIONS.md`); this is an accepted outcome, not a failure.
   2. High-severity recall ≥ 70% on the labeled holdout.
   3. Zero duplicate publications across the fault suite and E2E scenarios; zero rejected anchors in E2E.
   4. p95 time from job start to publication < 3 minutes for PRs up to 500 changed lines and 20 eligible files, at 2 concurrent runs.

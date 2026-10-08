@@ -4,7 +4,7 @@
 - [x] T0.1 Project scaffold
 - [x] T0.2 Settings, logging, redaction
 - [x] T0.3 Core contracts
-- [ ] T0.4 Policy schema and loader
+- [x] T0.4 Policy schema and loader
 - [ ] T0.5 Evaluation format, matcher, metrics
 - [ ] T0.6 Benchmark seed and CodeRabbit baseline
 - [ ] T0.7 GitHub App and sandbox setup
@@ -91,3 +91,7 @@
 2026-10-08 — T0.3 — Contracts in src/aireviewer/contracts/ (findings, anchors, run_state, coverage, schemas) plus ErrorCode/ErrorOutcome, IllegalTransition, MalformedAnchorId in errors.py (D17, D18). Added hypothesis 6.168 and syrupy 6.1 (dev).
 2026-10-08 — T0.3 — Snapshots created: tests/unit/contracts/__snapshots__/test_schema_snapshots/ (initial JSON Schemas of Finding and LLMFindingOut). Syrupy checked against D14: deselected runs keep exit code 5; a full run fails on unused snapshots; no configuration needed.
 2026-10-08 — T0.3 — For T1.2/T1.8: a retryable ErrorCode requeues the run (`RunEvent.REQUEUE`) and fails only after max attempts; lease-expiry reclaim also uses `requeue`. For T1.7: which skip reasons make a run `partial` is still to be decided there (§2.3 and T1.7 phrase it differently). For T3.7: `LLMFindingOut` only checks the anchor grammar; resolving anchors, `=`-anchor snapping and excerpt matching are the gates' job.
+2026-10-08 — T0.4 — Policy models in contracts/policy.py; loader, packaged defaults (src/aireviewer/policy/default_policy.yml, read with importlib.resources), detectors and the reference generator in src/aireviewer/policy/ (D19). Added pyyaml, regex, pathspec (runtime) and types-PyYAML, types-regex (dev). New target `make policy-docs` regenerates docs/POLICY_REFERENCE.md; test_policy_reference_up_to_date fails while it is stale. The tests use the §5.3 example with the layers domain (may_import: []), schemas and db (may_import: [domain]) added; paths chosen: src/app/domain/**, src/app/schemas/**, src/app/db/**.
+2026-10-08 — T0.4 — For T1.7/T3.1: policy budgets are only checked to be ≥ 1; the server clamps them to operator limits, and every clamp must be reported in the summary ("max_llm_calls lowered from X to Y by server limit"). T1.7 matches policy globs with `compile_globs` (pathspec `gitignore`), the engine validation uses.
+2026-10-08 — T0.4 — For T1.8/T1.9: the summary lists `PolicyResult.errors` at the top when `source` is `fallback` (ErrorCode POLICY_INVALID, outcome none); a policy file changed by the PR is ignored for the run and noted (§5.3 rule 1). Open question for T1.8: should an invalid policy skip Layer C (deterministic layers only, run partial), so that a typo cannot send excluded paths to the model? Nothing implemented for it yet.
+2026-10-08 — T0.4 — For T2.2: ESLint rule names and levels are only checked for syntax; the allowlist check belongs to config generation. For T4.7: `detector_search` returns `timeout` after 0.1 s; the convention pass decides what a timeout means for a finding.

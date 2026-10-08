@@ -22,7 +22,7 @@ define run_suite
 endef
 
 .PHONY: help setup fmt lint type test test-int test-sec test-faults test-hooks check check-all \
-	e2e eval eval-live eval-compare up down migrate
+	e2e eval eval-live eval-compare up down migrate policy-docs
 
 help: ## List targets
 	@grep -E '^[a-zA-Z0-9_%-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -72,6 +72,9 @@ test-hooks: ## Self-test of the Claude Code git hook
 check: lint type test ## lint + type + unit tests (before every commit)
 
 check-all: check test-int test-sec test-faults test-hooks ## Everything CI runs
+
+policy-docs: ## Regenerate docs/POLICY_REFERENCE.md from the policy models
+	$(RUN) python -m aireviewer.policy.reference docs/POLICY_REFERENCE.md
 
 verify-p%: ## Phase verification: make verify-p<N>
 	$(PYTEST) -m "p$* and not e2e and not eval"
