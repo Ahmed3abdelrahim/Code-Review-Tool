@@ -41,7 +41,8 @@ target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
 # docs/ holds illustrative snippets (and the read-only plan); ruff must never rewrite them.
-extend-exclude = [".claude", "docs"]
+# eval/ holds benchmark seed trees: reviewed-repository content with deliberate bugs (D22).
+extend-exclude = [".claude", "docs", "eval"]
 
 [tool.ruff.lint]
 select = [

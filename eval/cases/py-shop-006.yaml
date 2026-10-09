@@ -1,0 +1,15 @@
+id: py-shop-006
+split: dev
+kind: clean
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-006.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "41ad23cb9fc34f0e34f86312d05d9ae401a2c7b1"
+policy: policies/py-shop.yml
+labels: []
+notes: 'Clean: quantity validation (>= 1, <= 99 per product including the existing line) with tests; 422
+  from the API.'

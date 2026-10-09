@@ -1,0 +1,22 @@
+id: py-shop-002
+split: dev
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-002.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "ceed14f4368d990773f44c535d0632dac882a98e"
+policy: policies/py-shop.yml
+labels:
+- id: L1
+  category: security
+  severity: high
+  path: src/shop/repositories/products.py
+  lines: [36, 36]
+  description: The search term from the q query parameter is interpolated into the SQL text with an f-string
+    (SQL injection); it must be a bound parameter (with LIKE wildcards escaped).
+  must_find: true
+notes: 'Planted: SQL built with an f-string from user input.'

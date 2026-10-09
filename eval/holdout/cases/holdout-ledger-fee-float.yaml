@@ -1,0 +1,23 @@
+id: holdout-ledger-fee-float
+split: holdout
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-ledger
+  license: own
+bundle: bundles/holdout-ledger-fee-float.bundle
+bundle_base_sha: "7801f42eeea578b5c1fa5a742bc8408885dca3d9"
+bundle_head_sha: "4120fa4ae66c97faefe59cb5445e9c6c5dfa1c99"
+policy: policies/py-ledger.yml
+labels:
+- id: L1
+  category: correctness
+  severity: medium
+  path: ledger/service.py
+  lines: [30, 31]
+  side: RIGHT
+  description: apply_fee converts the Decimal amount to float, so the fee and the stored amount pick
+    up binary rounding errors.
+  must_find: false
+notes: 'Planted: money arithmetic done in float.'

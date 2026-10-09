@@ -1,0 +1,14 @@
+version: 1
+architecture:
+  layers:
+    - name: domain
+      paths: ["ledger/domain/**"]
+      may_import: []
+    - name: services
+      paths: ["ledger/service.py"]
+      may_import: [domain]
+  forbidden:
+    - id: domain.no-framework
+      from: ["ledger/domain/**"]
+      to: ["ext:fastapi"]
+      severity: medium

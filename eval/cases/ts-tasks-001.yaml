@@ -1,0 +1,22 @@
+id: ts-tasks-001
+split: dev
+kind: defect
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-tasks
+  license: own
+bundle: bundles/ts-tasks-001.bundle
+bundle_base_sha: "635fc29052ddf98f1642fe4748754f0636eb814d"
+bundle_head_sha: "25f87ea74eb49743ea5af4e229db8e3cce5959bf"
+policy: policies/ts-tasks.yml
+labels:
+- id: L1
+  category: reliability
+  severity: high
+  path: src/services/taskService.ts
+  lines: [37, 37]
+  description: 'save() is not awaited: a failed write becomes an unhandled rejection (by default it terminates
+    Node >= 15) and the API answers that the task is done although it may not have been persisted.'
+  must_find: true
+notes: 'Planted: missing await on a database save.'

@@ -1,0 +1,23 @@
+id: py-shop-007
+split: dev
+kind: design
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-007.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "974ac06b54a096f7ae238180f0c481ec3b1b85a9"
+policy: policies/py-shop.yml
+labels:
+- id: L1
+  category: design
+  severity: medium
+  path: src/shop/api/reports.py
+  lines: [7, 7]
+  description: The API handler imports the database session and runs SQL itself; the policy allows api
+    -> services, schemas, domain only. The query belongs in a repository behind a service (e.g. ReportService).
+  must_find: true
+notes: 'Design: the api layer imports shop.db.session (policy py-shop.yml: api may import services, schemas,
+  domain).'

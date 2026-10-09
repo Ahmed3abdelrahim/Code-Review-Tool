@@ -1,0 +1,23 @@
+id: py-shop-001
+split: dev
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-001.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "9a2cd16f6597eb947e5325591b1246a7fe5d73d9"
+policy: policies/py-shop.yml
+labels:
+- id: L1
+  category: correctness
+  severity: high
+  path: src/shop/services/reports.py
+  lines: [29, 29]
+  description: average_order_value divides revenue by len(orders); a date range without paid orders makes
+    it Decimal 0/0, which raises decimal.InvalidOperation, so GET /reports/sales returns 500 for empty
+    ranges.
+  must_find: true
+notes: 'Planted: average over a possibly empty list.'

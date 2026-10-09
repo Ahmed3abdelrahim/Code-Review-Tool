@@ -1,0 +1,14 @@
+id: py-shop-005
+split: dev
+kind: clean
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-005.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "abf977bb0ed440bb357d6b972cd2d893e069d1bb"
+policy: policies/py-shop.yml
+labels: []
+notes: 'Clean: calc_total renamed to order_total; callers and tests updated.'

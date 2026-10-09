@@ -1,0 +1,26 @@
+version: 1
+
+languages: [python]
+
+architecture:
+  python:
+    source_roots: ["src"]
+  layers:
+    - name: api
+      paths: ["src/shop/api/**"]
+      may_import: [services, schemas, domain]
+    - name: services
+      paths: ["src/shop/services/**"]
+      may_import: [repositories, domain]
+    - name: repositories
+      paths: ["src/shop/repositories/**"]
+      may_import: [db, domain]
+    - name: db
+      paths: ["src/shop/db/**"]
+      may_import: [domain]
+    - name: schemas
+      paths: ["src/shop/schemas/**"]
+      may_import: [domain]
+    - name: domain
+      paths: ["src/shop/domain/**"]
+      may_import: []

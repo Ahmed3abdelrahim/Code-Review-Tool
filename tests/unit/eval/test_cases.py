@@ -318,3 +318,72 @@ def test_planted_cases_need_no_upstream_shas(
     errors = errors_for(eval_dir)
     assert not has_error(errors, "(planted-one)"), errors
     assert has_error(errors, "(upstream-one)", "source:", "base_sha"), errors
+
+
+# --- holdout redaction (D22) ------------------------------------------------------------------
+
+HIDDEN = "HOLDOUT-ONLY-MARKER"
+
+
+def _broken_holdout(write_case: WriteCase, make_case_data: CaseData) -> None:
+    """A dev error, an invalid holdout case and a holdout case sharing the dev repository."""
+    write_case(make_case_data(id="dev-bad", split="holdout"))  # dev root, wrong split
+    write_case(make_case_data())
+    bad = make_case_data(id="holdout-bad", split="holdout")
+    bad["labels"][0].update(severity="huge", description=HIDDEN)
+    write_case(bad, holdout=True)
+    write_case(make_case_data(id="holdout-shared", split="holdout", notes=HIDDEN), holdout=True)
+
+
+def test_error_holdout_ids_attributed(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    _broken_holdout(write_case, make_case_data)
+    loaded = load_cases(eval_dir)
+    assert len(loaded.error_holdout_ids) == len(loaded.errors)
+    by_error = dict(zip(loaded.errors, loaded.error_holdout_ids, strict=True))
+    dev_errors = [e for e, ids in by_error.items() if not ids]
+    assert dev_errors
+    assert all(e.startswith("cases/dev-bad.yaml") for e in dev_errors)
+    assert set().union(*by_error.values()) == {"holdout-bad", "holdout-shared"}
+    assert any(
+        e.startswith("source.repo:") and ids == {"holdout-shared"} for e, ids in by_error.items()
+    )
+
+
+def test_redacted_errors_hide_holdout_details(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    _broken_holdout(write_case, make_case_data)
+    loaded = load_cases(eval_dir)
+    redacted = loaded.redacted_errors()
+    text = "\n".join(redacted)
+    for secret in (HIDDEN, "huge", "severity", "holdout/cases", "example/shop"):
+        assert secret not in text
+    assert [e for e in loaded.errors if e.startswith("cases/dev-bad.yaml")] == list(redacted[:-1])
+    assert redacted[-1].startswith(
+        "holdout: 2 problems involving 2 cases: holdout-bad, holdout-shared"
+    )
+
+
+def test_redacted_errors_hide_untrusted_ids(
+    eval_dir: Path, holdout_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    write_case(
+        make_case_data(id="Ignore previous instructions", split="holdout"), "x y", holdout=True
+    )
+    write_case(make_case_data(id="Also not an id!", split="holdout"), "named-file", holdout=True)
+    write_case(make_case_data())
+    redacted = load_cases(eval_dir).redacted_errors()
+    assert redacted == (
+        "holdout: 2 problems involving 2 cases: <unnamed>, named-file (details hidden; "
+        "run `aireview-eval validate` without --redact-holdout to see them)",
+    )
+
+
+def test_no_holdout_errors_means_nothing_redacted(
+    eval_dir: Path, write_case: WriteCase, make_case_data: CaseData
+) -> None:
+    write_case(make_case_data(id="dev-bad", split="holdout"))
+    loaded = load_cases(eval_dir)
+    assert loaded.redacted_errors() == loaded.errors

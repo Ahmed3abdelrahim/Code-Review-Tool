@@ -1,0 +1,14 @@
+id: holdout-notes-remove
+split: holdout
+kind: clean
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-notes
+  license: own
+bundle: bundles/holdout-notes-remove.bundle
+bundle_base_sha: "46be527bd91ed8aa41d5d7eed5800bde1dcdcb5b"
+bundle_head_sha: "b7a59e8339a24a69af57d820a4872d1b37e8407e"
+policy: policies/ts-notes.yml
+labels: []
+notes: 'Clean: correct removal with link cleanup and a test.'

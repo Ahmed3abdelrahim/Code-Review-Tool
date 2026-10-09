@@ -1,0 +1,23 @@
+id: holdout-notes-day-filter
+split: holdout
+kind: defect
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-notes
+  license: own
+bundle: bundles/holdout-notes-day-filter.bundle
+bundle_base_sha: "46be527bd91ed8aa41d5d7eed5800bde1dcdcb5b"
+bundle_head_sha: "fd8148a684a76ae11992227312f74ee92c4742ea"
+policy: policies/ts-notes.yml
+labels:
+- id: L1
+  category: correctness
+  severity: medium
+  path: src/format.ts
+  lines: [12, 12]
+  side: RIGHT
+  description: new Date with a YYYY-MM-DD string is parsed as UTC midnight but compared with local-time
+    getters, so west of UTC the filter matches the previous day.
+  must_find: false
+notes: 'Planted: date-only string parsed as UTC, compared in local time.'

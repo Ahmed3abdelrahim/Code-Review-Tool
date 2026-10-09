@@ -6,6 +6,7 @@ Errors name the file, the case and the field:
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -49,6 +50,7 @@ __all__ = [
 ]
 
 CASE_ID_PATTERN: Final = r"^[a-z0-9][a-z0-9-]{2,63}$"
+_CASE_ID: Final = re.compile(CASE_ID_PATTERN)
 MAX_CASE_BYTES: Final = 256 * 1024
 CASES_DIR: Final = "cases"
 HOLDOUT_DIR: Final = "holdout"  # D21: all holdout material lives under eval/holdout/
@@ -295,6 +297,29 @@ class Case(BaseModel):
 class CaseSet:
     cases: tuple[Case, ...]
     errors: tuple[str, ...]
+    # Parallel to `errors`: the holdout case ids each error involves (empty: dev only).
+    error_holdout_ids: tuple[frozenset[str], ...]
+
+    def __post_init__(self) -> None:
+        if len(self.error_holdout_ids) != len(self.errors):
+            raise ValueError("error_holdout_ids must have one entry per error")
+
+    def redacted_errors(self) -> tuple[str, ...]:
+        """Dev errors verbatim; errors involving holdout cases as one count-and-ids line (D22).
+
+        Holdout material is off-limits to Claude, so output Claude may see never quotes it.
+        """
+        visible = [e for e, ids in zip(self.errors, self.error_holdout_ids, strict=True) if not ids]
+        hidden = [ids for ids in self.error_holdout_ids if ids]
+        if not hidden:
+            return self.errors
+        case_ids = sorted(frozenset().union(*hidden))
+        return (
+            *visible,
+            f"holdout: {_count(len(hidden), 'problem')} involving {_count(len(case_ids), 'case')}: "
+            f"{', '.join(case_ids)} (details hidden; run `aireview-eval validate` without "
+            "--redact-holdout to see them)",
+        )
 
 
 def split_root(eval_dir: Path, split: Split | str) -> Path:
@@ -310,9 +335,9 @@ def load_cases(eval_dir: Path) -> CaseSet:
     repository-disjoint splits) run over both roots.
     """
     if not (eval_dir / CASES_DIR).is_dir():
-        return CaseSet((), (f"{CASES_DIR}/: directory not found in {eval_dir}",))
+        return CaseSet((), (f"{CASES_DIR}/: directory not found in {eval_dir}",), (frozenset(),))
     cases: list[Case] = []
-    errors: list[str] = []
+    errors: list[tuple[str, frozenset[str]]] = []
     policy_errors: dict[Path, tuple[str, ...]] = {}
     for split in Split:
         root = split_root(eval_dir, split)
@@ -322,11 +347,14 @@ def load_cases(eval_dir: Path) -> CaseSet:
         shown = f"{HOLDOUT_DIR}/{CASES_DIR}" if split is Split.HOLDOUT else CASES_DIR
         for path in sorted(p for p in cases_dir.iterdir() if p.suffix in (".yaml", ".yml")):
             case, file_errors = _load_case(path, root, split, shown, policy_errors)
-            errors += file_errors
+            involved: frozenset[str] = frozenset()
+            if split is Split.HOLDOUT:
+                involved = frozenset({_display_id(case.id if case is not None else path.stem)})
+            errors += [(e, involved) for e in file_errors]
             if case is not None and not file_errors:
                 cases.append(case)
     errors += _cross_case_errors(cases)
-    return CaseSet(tuple(cases), tuple(errors))
+    return CaseSet(tuple(cases), tuple(e for e, _ in errors), tuple(ids for _, ids in errors))
 
 
 def select_split(cases: Sequence[Case], split: Literal["dev", "holdout", "all"]) -> list[Case]:
@@ -402,12 +430,23 @@ def _normalized_repo(url: str) -> str:
     return f"{(parts.hostname or '').lower()}{path}"
 
 
-def _cross_case_errors(cases: Sequence[Case]) -> list[str]:
-    errors: list[str] = []
+def _display_id(value: str) -> str:
+    """A case id safe to show in redacted output: valid ids only (file stems are untrusted)."""
+    return value if _CASE_ID.fullmatch(value) else "<unnamed>"
+
+
+def _count(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def _cross_case_errors(cases: Sequence[Case]) -> list[tuple[str, frozenset[str]]]:
+    errors: list[tuple[str, frozenset[str]]] = []
+    holdout = {c.id for c in cases if c.split is Split.HOLDOUT}
     seen: set[str] = set()
     for case in cases:
         if case.id in seen:
-            errors.append(f"id: {case.id} is used by more than one case")
+            involved = frozenset({case.id}) if case.id in holdout else frozenset()
+            errors.append((f"id: {case.id} is used by more than one case", involved))
         seen.add(case.id)
     by_repo: dict[str, dict[Split, list[str]]] = {}
     for case in cases:
@@ -420,7 +459,10 @@ def _cross_case_errors(cases: Sequence[Case]) -> list[str]:
                 f"{split.value}: {', '.join(sorted(ids))}" for split, ids in sorted(splits.items())
             )
             errors.append(
-                f"source.repo: {repo} appears in both dev and holdout cases ({listing}); "
-                "splits must be repository-disjoint"
+                (
+                    f"source.repo: {repo} appears in both dev and holdout cases ({listing}); "
+                    "splits must be repository-disjoint",
+                    frozenset(splits[Split.HOLDOUT]),
+                )
             )
     return errors

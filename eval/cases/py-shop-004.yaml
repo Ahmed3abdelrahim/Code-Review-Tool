@@ -1,0 +1,24 @@
+id: py-shop-004
+split: dev
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-004.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "a2ecbe0899dfb7fa64d0abc1a28b5d29d82313b8"
+policy: policies/py-shop.yml
+labels:
+- id: L1
+  category: correctness
+  severity: medium
+  path: src/shop/services/discounts.py
+  lines: [12, 14]
+  description: 'applied: list[str] = [] is created once and mutated by applied.append: codes applied for
+    one quote stay in the shared list, so later quotes (other customers too) skip those codes and report
+    codes they never sent.'
+  must_find: false
+notes: 'Planted: mutable default argument shared between calls. QuoteIn.codes = [] is fine (pydantic copies
+  defaults); a finding there is invalid.'

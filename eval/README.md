@@ -15,7 +15,7 @@ eval/                                  # dev root
 ├── cases/<case>.yaml                  # one case: source, bundle SHAs, labels (split: dev)
 ├── seeds/<repo>/<case>/               # planted-bug cases: base/ and head/ trees, optional pr.md
 ├── bundles/<case>.bundle              # two snapshot commits per case (≤ 5 MB, ≤ 100 MB in total)
-├── policies/default.yml               # .ai-review.yml used by the cases
+├── policies/<repo>.yml                # .ai-review.yml of each repository (default.yml: defaults)
 ├── baselines/coderabbit/<case>.json   # exported CodeRabbit review comments
 ├── baselines/coderabbit_overrides.yaml   # optional category/severity corrections
 ├── baselines/coderabbit_predictions.json # converted predictions
@@ -40,6 +40,11 @@ Holdout material is off-limits to Claude (Claude Code): a deny rule
 shares only aggregate metrics with Claude.** Holdout runs happen at phase gates and are
 logged in DECISIONS.md.
 
+Output Claude reads never quotes holdout material (D22): `aireview-eval validate
+--redact-holdout` and every `--split dev` command reduce errors involving holdout cases to a
+count and case ids, and the benchmark integrity tests report holdout problems the same way.
+Run plain `aireview-eval validate` yourself to see the details.
+
 ## Planted-bug cases (seeds)
 
 1. Write the two snapshots: `<root>/seeds/<repo>/<case>/base/` and `.../head/`. Optionally
@@ -51,7 +56,13 @@ logged in DECISIONS.md.
 3. Write `<root>/cases/<case>.yaml` with `provenance: planted`, the printed
    `bundle_base_sha` and `bundle_head_sha`, and the labels. `source.base_sha`/`head_sha` are
    omitted for planted cases. Use the same `source.repo` for all cases of one seed repository.
-4. `aireview-eval validate`.
+4. `aireview-eval validate` (Claude runs it with `--redact-holdout`).
+
+Every case of a seed repository uses that repository's policy, `policies/<repo>.yml`, and both
+the `base/` and `head/` trees contain a byte-identical copy as `.ai-review.yml`, so sandbox
+runs see the same configuration (D22; checked by `test_seed_policy_matches_case_policy`, for
+holdout seeds too). `test_seed_bundles_match_seed_trees` fails when a seed changed without
+re-running `seed-build`.
 
 Seed trees must contain exactly what git records here: no symlinks, no `.git`, and nothing
 this repository's `.gitignore` ignores (for example `.env`, `build/`, `dist/`,

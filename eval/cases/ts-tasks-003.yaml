@@ -1,0 +1,22 @@
+id: ts-tasks-003
+split: dev
+kind: defect
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-tasks
+  license: own
+bundle: bundles/ts-tasks-003.bundle
+bundle_base_sha: "635fc29052ddf98f1642fe4748754f0636eb814d"
+bundle_head_sha: "ef8f9ed70458c8dd055fca985a2d6605fca1075a"
+policy: policies/ts-tasks.yml
+labels:
+- id: L1
+  category: correctness
+  severity: medium
+  path: src/ui/filters.ts
+  lines: [5, 7]
+  description: 'splice inside forEach shifts the remaining elements, so the task after each removed one
+    is skipped: two consecutive done tasks leave one of them visible. It also mutates the caller''s array.'
+  must_find: false
+notes: 'Planted: array mutated during iteration.'

@@ -1,0 +1,14 @@
+id: holdout-ledger-entries-helper
+split: holdout
+kind: clean
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-ledger
+  license: own
+bundle: bundles/holdout-ledger-entries-helper.bundle
+bundle_base_sha: "7801f42eeea578b5c1fa5a742bc8408885dca3d9"
+bundle_head_sha: "ac987e9e7642aa0ba48e09e7d9f9706433466f5d"
+policy: policies/py-ledger.yml
+labels: []
+notes: 'Clean: correct helper extraction with a test.'

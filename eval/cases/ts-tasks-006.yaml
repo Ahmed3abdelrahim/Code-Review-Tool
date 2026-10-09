@@ -1,0 +1,23 @@
+id: ts-tasks-006
+split: dev
+kind: design
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-tasks
+  license: own
+bundle: bundles/ts-tasks-006.bundle
+bundle_base_sha: "635fc29052ddf98f1642fe4748754f0636eb814d"
+bundle_head_sha: "7258341af85370ebd3dcb83e2c7da80a0c044afb"
+policy: policies/ts-tasks.yml
+labels:
+- id: L1
+  category: design
+  severity: medium
+  path: src/ui/TaskSummary.tsx
+  lines: [1, 1]
+  description: The UI component imports the database client and runs SQL itself; the policy allows ui
+    -> services, domain only. The counts belong in a service (countByStatus over taskService.listTasks
+    or a repository query).
+  must_find: true
+notes: 'Design: a ui component imports the db client (policy ts-tasks.yml: ui may import services, domain).'

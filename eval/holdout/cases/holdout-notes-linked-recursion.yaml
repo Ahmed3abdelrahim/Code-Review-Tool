@@ -1,0 +1,23 @@
+id: holdout-notes-linked-recursion
+split: holdout
+kind: defect
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-notes
+  license: own
+bundle: bundles/holdout-notes-linked-recursion.bundle
+bundle_base_sha: "46be527bd91ed8aa41d5d7eed5800bde1dcdcb5b"
+bundle_head_sha: "ae566569df36cb8bf3265227b340adf7a10c0e76"
+policy: policies/ts-notes.yml
+labels:
+- id: L1
+  category: reliability
+  severity: high
+  path: src/graph.ts
+  lines: [10, 10]
+  side: RIGHT
+  description: collectLinked recurses without a visited set; link() allows cycles such as a to b to a,
+    so a cycle causes infinite recursion and a stack overflow.
+  must_find: true
+notes: 'Planted: recursion over a graph that can contain cycles.'

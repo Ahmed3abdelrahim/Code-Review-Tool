@@ -1,0 +1,23 @@
+id: holdout-ledger-delete-perm
+split: holdout
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-ledger
+  license: own
+bundle: bundles/holdout-ledger-delete-perm.bundle
+bundle_base_sha: "7801f42eeea578b5c1fa5a742bc8408885dca3d9"
+bundle_head_sha: "b20bd1b35d1124dc578255cd8e5db516bddc6e70"
+policy: policies/py-ledger.yml
+labels:
+- id: L1
+  category: security
+  severity: high
+  path: ledger/service.py
+  lines: [19, 20]
+  side: RIGHT
+  description: delete() no longer checks user.is_admin while adding the audit log, so any user can
+    delete any ledger entry.
+  must_find: true
+notes: 'Planted: admin check dropped while adding an audit log.'

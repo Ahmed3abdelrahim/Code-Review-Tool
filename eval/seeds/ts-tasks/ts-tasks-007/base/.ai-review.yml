@@ -1,0 +1,26 @@
+version: 1
+
+languages: [typescript]
+
+architecture:
+  typescript:
+    tsconfig: tsconfig.json
+  layers:
+    - name: ui
+      paths: ["src/ui/**"]
+      may_import: [services, domain]
+    - name: api
+      paths: ["src/api/**"]
+      may_import: [services, domain]
+    - name: services
+      paths: ["src/services/**"]
+      may_import: [repositories, domain]
+    - name: repositories
+      paths: ["src/repositories/**"]
+      may_import: [db, domain]
+    - name: db
+      paths: ["src/db/**"]
+      may_import: [domain]
+    - name: domain
+      paths: ["src/domain/**"]
+      may_import: []

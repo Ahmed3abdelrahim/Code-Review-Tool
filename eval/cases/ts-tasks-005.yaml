@@ -1,0 +1,14 @@
+id: ts-tasks-005
+split: dev
+kind: clean
+language: typescript
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/ts-tasks
+  license: own
+bundle: bundles/ts-tasks-005.bundle
+bundle_base_sha: "635fc29052ddf98f1642fe4748754f0636eb814d"
+bundle_head_sha: "f69f1b5b927feaaac8e635ec80a60f519ab4bfca"
+policy: policies/ts-tasks.yml
+labels: []
+notes: 'Clean: countByStatus plus a stats route, with tests.'

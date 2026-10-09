@@ -1,0 +1,23 @@
+id: py-shop-003
+split: dev
+kind: defect
+language: python
+provenance: planted
+source:
+  repo: https://github.com/ahmed-aireview-sandbox/py-shop
+  license: own
+bundle: bundles/py-shop-003.bundle
+bundle_base_sha: "2da555244c15105e0b394b1f0b00059b63caa1f8"
+bundle_head_sha: "384ac01ae5bdb1cb138fd3b1e5d4fa1e390aa1c8"
+policy: policies/py-shop.yml
+labels:
+- id: L1
+  category: correctness
+  severity: medium
+  path: src/shop/services/orders.py
+  lines: [18, 18]
+  description: 'Pages are 1-based (page >= 1, documented in the docstring) but offset = page * page_size
+    skips the first page: page=1 returns orders 21-40 and the newest orders are never shown. Should be
+    (page - 1) * page_size.'
+  must_find: false
+notes: 'Planted: off-by-one in pagination.'

@@ -5,8 +5,10 @@ Exit codes: 0 success, 1 invalid input (the errors are listed), 2 usage error.
 Every command except `validate` works on one split, chosen with `--split`, and takes all
 paths from that split's root: `<eval>/` for dev, `<eval>/holdout/` for holdout (D21). Holdout
 material is off-limits to Claude; holdout steps are run by the user only. `validate` checks
-both roots. `seed-build` runs git only in temporary repositories (D11); `snapshot-upstream`
-reads a clone under eval/repos/ and is run by the user; `sandbox-commands` only prints.
+both roots; with `--redact-holdout`, and in every `--split dev` command, errors involving
+holdout cases are reduced to a count and case ids (D22). `seed-build` runs git only in
+temporary repositories (D11); `snapshot-upstream` reads a clone under eval/repos/ and is run
+by the user; `sandbox-commands` only prints.
 """
 
 from __future__ import annotations
@@ -64,7 +66,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:  # argparse exits on --help (0) and on usage errors (2)
         return exc.code if isinstance(exc.code, int) else EXIT_USAGE
     commands = {
-        "validate": lambda: _validate(args.eval_dir),
+        "validate": lambda: _validate(args.eval_dir, redact_holdout=args.redact_holdout),
         "score": lambda: _score(args),
         "adjudicate": lambda: _adjudicate(args),
         "seed-build": lambda: _seed_build(args),
@@ -87,7 +89,13 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aireview-eval", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    _eval_dir(commands.add_parser("validate", help="validate the cases of both splits"))
+    validate = commands.add_parser("validate", help="validate the cases of both splits")
+    _eval_dir(validate)
+    validate.add_argument(
+        "--redact-holdout",
+        action="store_true",
+        help="show errors involving holdout cases only as a count and case ids",
+    )
 
     for name, text in (
         ("score", "score a predictions file and write a report"),
@@ -185,10 +193,11 @@ def _root(args: argparse.Namespace) -> Path:
 # --- validate, score, adjudicate ---------------------------------------------------------------
 
 
-def _validate(eval_dir: Path) -> int:
+def _validate(eval_dir: Path, *, redact_holdout: bool) -> int:
     loaded = load_cases(eval_dir)
     if loaded.errors:
-        _write("\n".join(loaded.errors) + "\n")
+        shown = loaded.redacted_errors() if redact_holdout else loaded.errors
+        _write("\n".join(shown) + "\n")
         _write(f"{_plural(len(loaded.errors), 'error')}.\n")
         return EXIT_INVALID
     count = len(loaded.cases)
@@ -199,7 +208,8 @@ def _validate(eval_dir: Path) -> int:
 def _selected_cases(args: argparse.Namespace) -> list[Case]:
     loaded = load_cases(args.eval_dir)  # both roots: cross-split checks need them
     if loaded.errors:
-        raise EvalInputError(*loaded.errors)
+        dev = Split(args.split) is Split.DEV  # holdout details are not needed for dev work
+        raise EvalInputError(*(loaded.redacted_errors() if dev else loaded.errors))
     return [c for c in loaded.cases if c.split is Split(args.split)]
 
 

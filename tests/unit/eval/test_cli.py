@@ -260,3 +260,60 @@ def test_sandbox_commands_printed_not_run(
     assert "A labeled defect" not in out
     assert main(["sandbox-commands", "--eval-dir", str(eval_dir), "--org", "bad org!"]) == 2
     capsys.readouterr()
+
+
+def _holdout_problems(
+    write_case: Callable[..., Path], make_case_data: Callable[..., dict[str, Any]]
+) -> None:
+    write_case(make_case_data())
+    bad = make_case_data(id="holdout-bad", split="holdout")
+    bad["labels"][0].update(severity="huge", description="HOLDOUT-ONLY-MARKER")
+    write_case(bad, holdout=True)
+    write_case(make_case_data(id="holdout-shared", split="holdout"), holdout=True)
+
+
+def test_validate_redact_holdout_hides_details(
+    eval_dir: Path,
+    holdout_dir: Path,
+    write_case: Callable[..., Path],
+    make_case_data: Callable[..., dict[str, Any]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _holdout_problems(write_case, make_case_data)
+    write_case(make_case_data(id="dev-bad", split="holdout"))
+    assert main(["validate", "--eval-dir", str(eval_dir), "--redact-holdout"]) == 1
+    out = capsys.readouterr().out
+    assert "cases/dev-bad.yaml (dev-bad): split:" in out  # dev errors stay verbatim
+    assert "holdout: 2 problems involving 2 cases: holdout-bad, holdout-shared" in out
+    for secret in ("HOLDOUT-ONLY-MARKER", "huge", "holdout/cases", "example/shop"):
+        assert secret not in out
+
+    # Without the flag (the user's own run) the details are shown.
+    assert main(["validate", "--eval-dir", str(eval_dir)]) == 1
+    assert (
+        "holdout/cases/holdout-bad.yaml (holdout-bad): labels[0].severity"
+        in capsys.readouterr().out
+    )
+
+
+def test_dev_split_commands_redact_holdout_errors(
+    eval_dir: Path,
+    holdout_dir: Path,
+    write_case: Callable[..., Path],
+    make_case_data: Callable[..., dict[str, Any]],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _holdout_problems(write_case, make_case_data)
+    predictions = predictions_file(tmp_path / "p.json", {})
+    args = ["score", "--eval-dir", str(eval_dir), "--predictions", str(predictions)]
+    assert main(args) == 1
+    out = capsys.readouterr().out
+    assert "holdout: 2 problems involving 2 cases: holdout-bad, holdout-shared" in out
+    for secret in ("HOLDOUT-ONLY-MARKER", "huge", "holdout/cases", "example/shop"):
+        assert secret not in out
+
+    assert main([*args, "--split", "holdout"]) == 1  # the user's holdout run shows details
+    assert "holdout/cases/holdout-bad.yaml (holdout-bad): labels[0].severity" in (
+        capsys.readouterr().out
+    )
